@@ -1,0 +1,5 @@
+# Real people who must never appear in the game (names, case-insensitive, whole words).
+# Characters are invented; course material is used for topics only.
+Leo
+Leonardo
+Todaro

@@ -1,0 +1,10 @@
+{
+  "name": "ravnsted",
+  "private": true,
+  "description": "A dark woodcut story game for learning Danish, in the browser. No build step: open index.html.",
+  "scripts": {
+    "lint": "node tools/lint.js",
+    "playtest": "node tools/playtest.js",
+    "test": "node tools/lint.js && node tools/playtest.js --runs 3"
+  }
+}
