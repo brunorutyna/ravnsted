@@ -10,10 +10,10 @@ const MINI = {
   /* ---- look closely: tap the three wrong things about the dress ---- */
   async inspect(m) {
     const spots = INSPECT;
-    const ov = miniOv('inspect', `<p class="mh">Kig godt efter</p><p class="small">Three things are wrong with this dress. Tap them.</p><div class="dressbox"><canvas width="600" height="700"></canvas>${spots.map(s => `<button class="mtap spot" data-k="${s.k}" style="left:${s.x * 100}%;top:${s.y * 100}%" aria-label="look here">?</button>`).join('')}</div><div class="found"></div><div class="mbrow"></div>`);
+    const ov = miniOv('inspect', `<p class="mh">Kig godt efter</p><p class="small">Three things are wrong with this dress. Tap them.</p><div class="dressbox"><canvas width="600" height="700"></canvas>${spots.map(s => `<button class="mtap dspot" data-k="${s.k}" style="left:${s.x * 100}%;top:${s.y * 100}%" aria-label="look here">?</button>`).join('')}</div><div class="found"></div><div class="mbrow"></div>`);
     ART.dress($('canvas', ov).getContext('2d'), 600, 700);
-    let found = 0; __dev.answer = '.spot:not(.done)';
-    ov.querySelectorAll('.spot').forEach(b => b.onclick = () => {
+    let found = 0; __dev.answer = '.dspot:not(.done)';
+    ov.querySelectorAll('.dspot').forEach(b => b.onclick = () => {
       if (b.classList.contains('done')) return; b.classList.add('done'); b.textContent = '✕'; found++;
       const s = spots.find(x => x.k === b.dataset.k); const p = document.createElement('p'); p.className = 'da'; p.innerHTML = daHTML(s.da) + ` <span class="small">${esc(s.en)}</span>`; $('.found', ov).appendChild(p);
       TTS.say(s.da, true, 'kragen'); AUDIO.sfx('tick'); G.use.oeje++;

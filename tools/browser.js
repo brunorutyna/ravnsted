@@ -1,7 +1,7 @@
 // Shared: a tiny static server for the repo and a Playwright Chromium (phone-sized).
 const http = require('http'), fs = require('fs'), path = require('path');
 const { ROOT } = require('./load');
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.mp3': 'audio/mpeg', '.json': 'application/json' };
 function serve() {
   return new Promise(res => {
     const srv = http.createServer((q, r) => {

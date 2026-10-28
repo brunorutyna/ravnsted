@@ -42,6 +42,8 @@ async function play(srv, run) {
     }
     if (await p.$('.mini-ov')) {
       const k = await p.$eval('.mini-ov', e => e.className.replace('mini-ov', '').trim()).catch(() => 'x'); await shot('mini_' + k);
+      const small = await p.$eval('.mini-ov', e => { const r = e.getBoundingClientRect(); return r.width < innerWidth * .9 || r.height < innerHeight * .9; }).catch(() => false);
+      if (small && !errors.some(x => x.includes('mini-game ' + k))) errors.push(`mini-game ${k} does not cover the screen (a CSS class clash?)`);
       if (await click('#mDone')) continue;
       const sel = await p.evaluate(() => __dev.answer);
       if (sel && Math.random() < .85 && await click(sel)) { await p.waitForTimeout(20); continue; }
@@ -62,6 +64,7 @@ async function play(srv, run) {
   if (!ending && !errors.length) errors.push('no ending reached');
   const gameErr = await p.evaluate(() => __dev.errors || []); gameErr.forEach(e => errors.push('game reported: ' + e));
   const miss = await p.evaluate(() => [...new Set(__dev.voiceMiss || [])]); if (miss.length) errors.push(`lines with no voice clip: ${miss.slice(0, 8).join(' · ')}`);
+  const imiss = await p.evaluate(() => [...new Set(__dev.imgMiss || [])]); if (imiss.length) errors.push(`missing paintings: ${imiss.join(' · ')}`);
   await browser.close();
   return { ending, errors, steps: n };
 }

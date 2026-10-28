@@ -11,3 +11,11 @@ Run these before every push. Each check exists because the bug it catches has ha
 | `tools/bump.sh` | Stamps css/js with a new version so phones load new files at once, and an open game offers "Ny version". | sh |
 
 Manual checks the tools cannot do: listen on a phone (voice not cut off, music per time of day, ducking under speech), watch one time-of-day transition, read the new Danish aloud once.
+
+## Art (tools/art)
+The paintings are made with Google's Gemini image model on Vertex AI (project "ravnsted").
+- `gen.py` holds every prompt (style, hidden faces, crowd clothing). `RAVNSTED_KEY=/path/key.json python3 tools/art/gen.py [name ...]` makes the missing raw paintings in `~/ravnsted-art-raw` (delete one to redo it). Never commit the key.
+- `pack.py` turns them into `img/*.webp`; people (`p_*`) are cut out with rembg (isnet-general-use).
+- `refs/` are the approved style-1 portraits used as references so characters stay the same.
+- In `js/art.js`, `FX` places the living effects (candles, fire, fog, rain, wisps, eyes) in painting coordinates, and `AMBIENT` tints people with each room's light.
+- Rules: no human face is ever shown; crowd clothing must match the Danish description exactly (check every card by eye).

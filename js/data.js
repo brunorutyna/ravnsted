@@ -85,7 +85,7 @@ function whereAnswers(pron) {
 const HAGGLE_RANGE = { gertrud: [15, 50], mads: [5, 22] };
 
 const INSPECT = [
-  { k: 'kant', x: .5, y: .86, da: 'Kanten er våd.', en: 'The hem is wet.' },
-  { k: 'som', x: .32, y: .55, da: 'Der er et siv i sømmen.', en: 'There is a reed in the seam.' },
-  { k: 'krave', x: .5, y: .14, da: 'Der er mudder på kraven.', en: 'There is mud on the collar.' },
+  { k: 'kant', x: .5, y: .85, da: 'Kanten er våd.', en: 'The hem is wet.' },
+  { k: 'som', x: .37, y: .6, da: 'Der er et siv i sømmen.', en: 'There is a reed in the seam.' },
+  { k: 'krave', x: .5, y: .1, da: 'Der er mudder på kraven.', en: 'There is mud on the collar.' },
 ];
