@@ -19,7 +19,7 @@ Fantasy and everyday misery are the same thing here. The hill folk come down to 
 - **Mini-games:** the scribe's binding book, finding a person by their clothes, haggling with prices said in Danish, mixing dyes and naming the colour, looking closely at things, and an evening review by the candle.
 - **Tap any Danish word** for its meaning (press and hold inside buttons).
 - **Art: Træsnit.** Woodcut: black ink cut into bone paper, one dried red, and hand-coloured washes on clothes, as on old broadsheets. All drawn on canvas.
-- **Voices:** every character speaks with a voice of their own, recorded for the game from a Danish neural voice and reshaped per character: the nervous miller's wife, the old scribe with a tremble, the bailiff's deep voice, the hill woman's undertone, the thing in the marsh. No phone voice needed. Tap any word to hear it.
+- **Voices:** every character speaks natural Danish with a voice actor of their own (Google Chirp 3 HD voices, rendered once and shipped with the game): Danish intonation, questions that rise, anger and fear in the voice. The hill woman and the thing in the marsh get an echo and an undertone on top. No phone voice needed. Tap any word to hear it.
 - **Music:** progressive, psychedelic heavy rock, recorded for the game: double-tracked distorted guitars, a Leslie organ, a fuzz-and-phaser lead with tape delay, bass and drums, in odd meters (7/8, 5/4, 6/8). A piece for each part of the day, a title song and an outro; they crossfade when the church bell strikes. Composed in code and played by sampled instruments (`tools/music/`). Effects (bells, ink, coins) are made in the browser.
 
 ## Chapters (spoiler-free)
@@ -28,7 +28,7 @@ Fantasy and everyday misery are the same thing here. The hill folk come down to 
 
 ## Credits
 
-Instrument samples: GeneralUser GS by S. Christian Collins (github.com/mrbumpy409/GeneralUser-GS). Voices: Piper, Danish voice "talesyntese".
+Instrument samples: GeneralUser GS by S. Christian Collins (github.com/mrbumpy409/GeneralUser-GS). Voices: Google Cloud Text-to-Speech (Chirp 3 HD, da-DK).
 
 ## Development
 

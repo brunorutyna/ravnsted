@@ -2,3 +2,8 @@ tools/speech.json
 node_modules/
 *.npy
 __pycache__/
+# secrets never go in this public repo
+*service-account*.json
+ravnsted-*.json
+*.pem
+.env

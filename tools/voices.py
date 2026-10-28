@@ -42,7 +42,7 @@ GV = {
   'gertrud':  dict(voice='Pulcherrima', rate=.95, fx='highpass=f=90,equalizer=f=3200:t=q:w=1:g=2'),
   'bodil':    dict(voice='Gacrux', rate=1.02, fx='highpass=f=80'),
   'hulda':    dict(voice='Vindemiatrix', rate=.88, fx='highpass=f=50,aecho=0.8:0.5:90|180:0.2|0.1', shape=dict(f0=.86, rng=.7, fm=.95, br=.05, trem=None, layer=.18)),
-  'absalon':  dict(voice='Sadaltager', rate=.88, fx='highpass=f=90,vibrato=f=5:d=0.02'),
+  'absalon':  dict(voice='Sadaltager', rate=.88, fx='highpass=f=90', shape=dict(f0=1.0, rng=1.0, fm=1.0, br=.12, trem=(5.2, 16))),  # ffmpeg's vibrato filter made NaNs
   'mads':     dict(voice='Fenrir', rate=1.1, fx='highpass=f=110,equalizer=f=1400:t=q:w=1.5:g=2'),
   'foged':    dict(voice='Alnilam', rate=.92, fx='highpass=f=50'),
   'jens':     dict(voice='Zubenelgenubi', rate=1.04, fx='highpass=f=80'),
@@ -124,7 +124,9 @@ def render(item):
         v = V[who]; x, sr = piper(item['text'], v['speed'])
         y = x if v.get('raw') else shape(x, sr, v, int(hid(item)[:8], 16)); fxc = v['fx']
     y = y / (np.max(np.abs(y)) + 1e-9) * .9
-    z = ff(y, sr, fxc); os.makedirs(os.path.dirname(p), exist_ok=True); np.save(p, z); return z
+    z = ff(y, sr, fxc)
+    if not np.isfinite(z).all() or not np.abs(z).max() > 1e-3: raise ValueError(f"bad audio for {who}: {item['text'][:40]}")  # never cache silence or NaN
+    os.makedirs(os.path.dirname(p), exist_ok=True); np.save(p, z); return z
 def pack(items, chunk_sec=40):
     """Group clips per voice into ~40 s sprites, encode each once, and map every line to [file, start, dur]."""
     out = f'{ROOT}/audio/voice'; os.makedirs(out, exist_ok=True)
