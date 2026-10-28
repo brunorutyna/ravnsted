@@ -193,11 +193,25 @@ const ART = (() => {
       c.globalAlpha = 1; c.globalCompositeOperation = 'source-over'; vignette(c, W, H, .75);
     },
     lore(c, W, H, art) {
-      // a tall screen gets the tall title painting, and wide paintings are framed on their subject
-      const name = { town: H > W ? 'title_tall' : 'title_wide', marsh: 'lore_marsh', book: 'skriver_5', crow: 'lore_crow' }[art] || art || 'title_wide';
-      const FOCUS = { lore_crow: [.31, .4], lore_marsh: [.28, .15], skriver_5: [.37, .4], lore_doed: [.55, .4], lore_hane: [.33, .3], lore_lampe: [.5, .35] };
-      const [fx, fy] = FOCUS[name] || [.5, .3];
-      once(c, name, im => { const at = cover(c, im, W, H, 1, fx, fy); const f = performance.now(); effects(c, (FX[name] || []).filter(e => e[0] !== 'fog'), at, W, H, f, false); vignette(c, W, H, .35); });
+      // On a tall screen each card uses its own tall painting (img/<name>_tall), which fills the screen sharply.
+      // Without one, the wide painting is shown whole and sharp, over a dark blurred copy that fills the rest.
+      const wide = { town: 'title_wide', marsh: 'lore_marsh', book: 'skriver_5', crow: 'lore_crow' }[art] || art || 'title_wide';
+      const tall = H > W ? { town: 'title_tall', marsh: 'lore_marsh_tall', book: 'lore_book_tall', crow: 'lore_crow_tall', lore_doed: 'lore_doed_tall', lore_hane: 'lore_hane_tall', lore_lampe: 'lore_lampe_tall' }[art] : null;
+      const f = performance.now();
+      const whole = im => {
+        c.fillStyle = INK; c.fillRect(0, 0, W, H);
+        try { c.filter = 'blur(18px) brightness(.45)'; cover(c, im, W, H, 1.15); } catch (e) { } c.filter = 'none';
+        const k = W / im.naturalWidth, h = im.naturalHeight * k, y = Math.max(0, H * .42 - h / 2);
+        c.drawImage(im, 0, y, W, h); const g = c.createLinearGradient(0, y + h - H * .06, 0, y + h); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.5)'); c.fillStyle = g; c.fillRect(0, y, W, h);
+        effects(c, (FX[wide] || []).filter(e => e[0] !== 'fog'), (u, v) => [u * W, y + v * h, k], W, H, f, false);
+      };
+      const full = im => { const at = cover(c, im, W, H, 1, .5, .4); effects(c, (FX[wide] || []).filter(e => e[0] !== 'fog' && e[0] !== 'eyes'), at, W, H, f, false); vignette(c, W, H, .3); };
+      if (!tall) return once(c, wide, im => { const at = cover(c, im, W, H, 1, .5, .45); effects(c, (FX[wide] || []).filter(e => e[0] !== 'fog'), at, W, H, f, false); vignette(c, W, H, .35); });
+      if (tall === 'title_tall') return once(c, tall, full);
+      // try the tall painting; fall back to the whole wide one if it does not exist (yet)
+      const t = img(tall); if (t) return full(t);
+      once(c, wide, im => { if (!img(tall)) whole(im); });
+      img(tall, im => full(im));
     },
     die(c, S, n, p) {
       c.clearRect(0, 0, S, S); c.save(); c.translate(S / 2, S / 2); c.rotate(p < 1 ? p * 12 : 0); const r = S * .42;

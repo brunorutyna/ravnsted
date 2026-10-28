@@ -19,7 +19,7 @@ def pack(name):
     if name.startswith('p_'):
         im = cut(im); im.thumbnail((900, 900)); im.save(os.path.join(OUT, name + '.webp'), quality=82, method=6)
     else:
-        lim = 1600 if name.startswith('title') else 640 if name.startswith('c_') else 512 if name.startswith('o_') else 1280
+        lim = 1600 if name.startswith('title') or name.endswith('_tall') else 640 if name.startswith('c_') else 512 if name.startswith('o_') else 1280
         im.thumbnail((lim, lim)); im.save(os.path.join(OUT, name + '.webp'), quality=78, method=6)
     return name
 if __name__ == '__main__':
