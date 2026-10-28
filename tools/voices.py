@@ -6,7 +6,8 @@ tremble, an undertone for creatures) plus a room. Clips are packed into small mp
 
   pip install piper-tts sherpa-onnx pyworld soundfile numpy
   RAVNSTED_TTS=/path/to/models python3 tools/voices.py
-  GOOGLE_TTS_KEY=... python3 tools/voices.py      (natural voices: Google Chirp 3 HD, one actor per character)
+  GOOGLE_TTS_KEYFILE=service-account.json python3 tools/voices.py   (natural voices: Google Chirp 3 HD, one actor per character)
+  (or GOOGLE_TTS_KEY=<API key>). Keys stay outside the repo.
 The model folder must hold vits-piper-da_DK-talesyntese-medium/ (from the sherpa-onnx tts-models release).
 Rendered clips are cached in RAVNSTED_CACHE (default ~/.cache/ravnsted-voices), so reruns only render new lines."""
 import os, sys, json, hashlib, subprocess, io, re
@@ -41,26 +42,41 @@ GV = {
   'gertrud':  dict(voice='Pulcherrima', rate=.95, fx='highpass=f=90,equalizer=f=3200:t=q:w=1:g=2'),
   'bodil':    dict(voice='Gacrux', rate=1.02, fx='highpass=f=80'),
   'hulda':    dict(voice='Vindemiatrix', rate=.88, fx='highpass=f=50,aecho=0.8:0.5:90|180:0.2|0.1', shape=dict(f0=.86, rng=.7, fm=.95, br=.05, trem=None, layer=.18)),
-  'absalon':  dict(voice='Sadaltager', rate=.88, fx='highpass=f=90,vibrato=f=5:d=0.06'),
+  'absalon':  dict(voice='Sadaltager', rate=.88, fx='highpass=f=90,vibrato=f=5:d=0.02'),
   'mads':     dict(voice='Fenrir', rate=1.1, fx='highpass=f=110,equalizer=f=1400:t=q:w=1.5:g=2'),
   'foged':    dict(voice='Alnilam', rate=.92, fx='highpass=f=50'),
   'jens':     dict(voice='Zubenelgenubi', rate=1.04, fx='highpass=f=80'),
   'mosekonen':dict(voice='Despina', rate=.86, fx='highpass=f=60,aecho=0.8:0.5:60|130|260:0.22|0.15|0.08,lowpass=f=6000', shape=dict(f0=.82, rng=1.3, fm=.94, br=.3, trem=(3.5, 30), layer=.25)),
 }
-ENGINE = 'google' if os.environ.get('GOOGLE_TTS_KEY') else 'piper'
+ENGINE = 'google' if (os.environ.get('GOOGLE_TTS_KEY') or os.environ.get('GOOGLE_TTS_KEYFILE')) else 'piper'
+_tok = [None, 0]
+def bearer():
+    """A self-signed JWT from the service account (no OAuth round trip needed), renewed every 50 minutes."""
+    import time, jwt
+    if _tok[0] and time.time() < _tok[1]: return _tok[0]
+    k = json.load(open(os.environ['GOOGLE_TTS_KEYFILE'])); now = int(time.time())
+    _tok[0] = jwt.encode({'iss': k['client_email'], 'sub': k['client_email'], 'aud': 'https://texttospeech.googleapis.com/', 'iat': now, 'exp': now + 3600}, k['private_key'], algorithm='RS256', headers={'kid': k['private_key_id']})
+    _tok[1] = now + 3000; return _tok[0]
 def google(text, who):
     import urllib.request, base64
     g = GV[who]
     body = json.dumps({'input': {'text': text}, 'voice': {'languageCode': 'da-DK', 'name': f"da-DK-Chirp3-HD-{g['voice']}"},
                        'audioConfig': {'audioEncoding': 'LINEAR16', 'sampleRateHertz': 24000, 'speakingRate': g['rate']}}).encode()
-    req = urllib.request.Request('https://texttospeech.googleapis.com/v1/text:synthesize?key=' + os.environ['GOOGLE_TTS_KEY'], data=body, headers={'Content-Type': 'application/json'})
-    for attempt in range(4):
+    url, hdr = 'https://texttospeech.googleapis.com/v1/text:synthesize', {'Content-Type': 'application/json'}
+    if os.environ.get('GOOGLE_TTS_KEYFILE'): hdr['Authorization'] = 'Bearer ' + bearer()
+    else: url += '?key=' + os.environ['GOOGLE_TTS_KEY']
+    req = urllib.request.Request(url, data=body, headers=hdr)
+    import time, urllib.error
+    for attempt in range(8):
         try:
             with urllib.request.urlopen(req, timeout=60) as r: wav = base64.b64decode(json.loads(r.read())['audioContent'])
             break
-        except Exception as e:
-            if attempt == 3: raise
-            import time; time.sleep(2 * (attempt + 1))
+        except urllib.error.HTTPError as e:  # 429: Google's per-minute quota; wait it out
+            if attempt == 7 or e.code not in (429, 500, 503): raise
+            time.sleep(15 * (attempt + 1))
+        except Exception:
+            if attempt == 7: raise
+            time.sleep(3 * (attempt + 1))
     a, sr = sf.read(io.BytesIO(wav), dtype='float64'); return a, sr
 
 _pv = None
@@ -148,7 +164,7 @@ if __name__ == '__main__':
         from concurrent.futures import ThreadPoolExecutor
         todo = [it for it in items if not os.path.exists(f"{CACHE}/{it['who']}/{hid(it)}.npy")]
         print(f'Google Chirp 3 HD: {len(todo)} lines to render', flush=True)
-        with ThreadPoolExecutor(6) as ex:
+        with ThreadPoolExecutor(2) as ex:
             for j, _ in enumerate(ex.map(render, todo)):
                 if j % 50 == 0: print(f'  {j}/{len(todo)}', flush=True)
     vm = pack(items); size = sum(os.path.getsize(f'{ROOT}/audio/voice/{f}') for f in os.listdir(f'{ROOT}/audio/voice'))
