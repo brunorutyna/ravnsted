@@ -11,6 +11,8 @@ const base = [];
 for (const sold of ['gertrud', 'mads', 'hulda', 'kept']) for (const v of [0, 1]) base.push({ flags: { sold, price: 20, betterCut: v, inkBad: v, kept: sold === 'kept' ? 1 : 0, askedWhere: v, inspected: v, lieH: v, clueHue: v, pay2: v ? 15 : 0, truthJ: v, bribe: v, reported: v, inkBad2: v, warmG: v, lieG: v, lieGfail: v, truthG: v, warmM: v, knowsEllen: v, paidScribe: v, wary: v, caught: v }, kr: 10,
   mini: { c1: { bad: !!v }, c2: { bad: !!v }, dress: { found: v ? 3 : 1 }, findG: { ok: !!v }, findJ: { ok: !!v }, dye: { score: v ? 3 : 1 }, saleG: { walked: !!v, price: 30 }, saleM: { walked: !!v, price: 12 } }, wear: { da: 'En rød trøje', en: 'A red sweater', pron: 'den' }, lastBuilt: null, where: '' });
 const samples = [...base];
+// mixed states: what happened in the mini-games crossed with the choices (Bruno's run found a line only reachable this way)
+for (let i = 0; i < base.length; i += 2) { samples.push(Object.assign({}, base[i], { mini: base[i + 1].mini })); samples.push(Object.assign({}, base[i + 1], { mini: base[i].mini })); }
 [['sikke', 'en', 'smuk', 'kjole'], ['sikke', 'et', 'smukt', 'tørklæde'], ['sikke', 'nogle', 'smukke', 'sko']].forEach(lb => samples.push(Object.assign({}, base[0], { lastBuilt: lb })));
 ['jeg har købt den på et loppemarked', 'jeg har fået den af min mor', 'jeg har købt den i en butik', ''].forEach(w => samples.push(Object.assign({}, base[0], { where: w })));
 const wears = []; for (const n of Object.keys(C.WEAR_NOUNS)) for (const c of Object.keys(C.COLORS)) wears.push(C.wearOf(n, c));
