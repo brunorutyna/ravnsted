@@ -100,14 +100,21 @@ function hud() {
 function kr(n, why) { if (n < 0) n = -Math.min(G.kr, -n); if (!n) return; G.kr += n; hud(); AUDIO.sfx(n >= 0 ? 'coin' : 'coinout'); addLog(`<span>${n >= 0 ? '+' : '−'} ${Math.abs(n)} kr.</span> ${why ? '· ' + daHTML(why) : ''}`, 'money'); }
 
 /* ---------------- continue ---------------- */
+/* A run is one walk through the story. Going back to the title or continuing a save starts a new run;
+   an older run that is still waiting somewhere stops instead of acting on the new one. */
+let RUN = 0; const STALE = { stale: true };
+const alive = r => { if (r !== RUN) throw STALE; };
 function waitTap() {
   if (FAST) return Promise.resolve();
-  return new Promise(res => {
+  const r = RUN;
+  return new Promise((res, rej) => {
     const b = document.createElement('button'); b.id = 'cont'; b.className = 'cont'; b.textContent = 'Videre';
     $('#act').innerHTML = ''; $('#act').appendChild(b);
-    const go = () => { logEl().removeEventListener('click', lg); b.remove(); AUDIO.sfx('page'); res(); };
-    const lg = e => { if (!e.target.closest('button') && !e.target.closest('.w')) go(); };
-    b.onclick = go; setTimeout(() => logEl().addEventListener('click', lg), 250);
+    let armed = false, done = false; const log = logEl();
+    const go = () => { if (done) return; done = true; clearTimeout(t); log.removeEventListener('click', lg); b.remove(); if (r !== RUN) return rej(STALE); AUDIO.sfx('page'); res(); };
+    const lg = e => { if (armed && !e.target.closest('button') && !e.target.closest('.w')) go(); };
+    b.onclick = go; log.addEventListener('click', lg); const t = setTimeout(() => armed = true, 250);
+    waitTap.cancel = () => { if (!done) { done = true; log.removeEventListener('click', lg); b.remove(); rej(STALE); } };
   });
 }
 
@@ -118,6 +125,8 @@ async function runSteps(list) {
   for (const raw of (Array.isArray(list) ? list : list ? [list] : [])) {
     if (typeof raw === 'function' || Array.isArray(raw)) { const r = await runSteps(typeof raw === 'function' ? raw(G) : raw); if (r) return r; continue; }
     const st = raw; if (!st) continue;
+    const r = RUN;
+    try {
     if (st.n) { addLog(esc(st.n), 'n'); await waitTap(); }
     else if (st.t) { addLog(esc(st.t), 't'); await waitTap(); }
     else if (st.say) { sayLine(st); await waitTap(); }
@@ -128,6 +137,8 @@ async function runSteps(list) {
     else if (st.mini) { G.mini[st.mini.id] = await MINI[st.mini.kind](st.mini); save(); }
     else if (st.go) return { go: st.go };
     else if (st.end) return { end: st.end };
+    } catch (e) { if (e === STALE || r !== RUN) throw STALE; report(e, 'step in ' + G.node); if (st.mini) G.mini[st.mini.id] = G.mini[st.mini.id] || {}; }
+    alive(r);
   }
   return null;
 }
@@ -164,15 +175,28 @@ async function passTime(k) {
 }
 
 /* ---------------- scenes and options ---------------- */
-async function enter(id) {
+function report(e, where) {
+  const msg = (e && (e.message || e.reason && e.reason.message)) || String(e); console.error(where || '', e);
+  const errs = lsGet('ravnsted_errors', []); errs.unshift({ t: new Date().toISOString().slice(0, 16), m: `${where || ''}: ${msg}`.slice(0, 200), s: String(e && e.stack || '').split('\n').slice(0, 3).join(' | ').slice(0, 300) }); lsSet('ravnsted_errors', errs.slice(0, 8));
+  const b = document.createElement('div'); b.className = 'errbox'; b.textContent = `Fejl · ${msg}`.slice(0, 160); document.body.appendChild(b); setTimeout(() => b.remove(), 9000);
+  __dev.errors = (__dev.errors || []).concat(msg);
+}
+window.addEventListener('error', e => report(e.error || e.message, 'error'));
+window.addEventListener('unhandledrejection', e => { if (e.reason !== STALE) report(e.reason, 'promise'); });
+async function enter(id, fresh) {
+  if (fresh) { RUN++; waitTap.cancel && waitTap.cancel(); }
+  const run = RUN;
+  try { await enterRun(id, run); } catch (e) { if (e !== STALE && run === RUN) { report(e, 'scene ' + id); showOpts(); } }
+}
+async function enterRun(id, run) {
   const N = SESSION.nodes[id];
   G.node = id; G.at = { node: id, snap: snap() }; save();
   if (N.time !== undefined && N.time > G.time) { G.time = N.time; }
   ART.setPlace(N.place, G.time); G.npcs = (N.npcs || []).slice(); ART.setNpcs(G.npcs); hud();
   prefetchVoices((N.lines || []).filter(x => x && x.say).map(x => [x.say, x.da]));
   __dev.node = id;
-  const r = await runSteps(N.lines);
-  if (r && r.go) return enter(r.go);
+  const r = await runSteps(N.lines); alive(run);
+  if (r && r.go) return enterRun(r.go, run);
   if (r && r.end) return finish(r.end);
   showOpts();
 }
@@ -192,6 +216,10 @@ function showOpts() {
   requestAnimationFrame(() => { logEl().scrollTop = logEl().scrollHeight + 999; });
 }
 async function choose(o, i) {
+  const run = RUN;
+  try { await chooseRun(o, i, run); } catch (e) { if (e !== STALE && run === RUN) { report(e, 'choice in ' + G.node); showOpts(); } }
+}
+async function chooseRun(o, i, run) {
   $('#act').innerHTML = ''; AUDIO.sfx('page');
   if (o.once) G.used[G.node + ':' + i] = 1;
   if (o.cost) kr(-o.cost, o.tag === 'Køb' ? o.label.toLowerCase() : '');
@@ -203,12 +231,13 @@ async function choose(o, i) {
   }
   if (o.roll) ok = await rollDice(o.roll.stat, o.roll.dc, adv);
   if (ok && o.set) Object.assign(G.flags, o.set);
-  const r = await runSteps(ok ? o.ok : (o.fail || []));
+  alive(run);
+  const r = await runSteps(ok ? o.ok : (o.fail || [])); alive(run);
   save();
-  if (r && r.go) return enter(r.go);
+  if (r && r.go) return enterRun(r.go, run);
   if (r && r.end) return finish(r.end);
   const nx = ok ? o.next : (o.failNext || o.next);
-  if (nx) return enter(nx);
+  if (nx) return enterRun(nx, run);
   showOpts();
 }
 
@@ -343,17 +372,20 @@ function settings() {
     <label class="chk"><input type="checkbox" id="sVo" ${SETTINGS.voiceOn ? 'checked' : ''}> Stemmer</label>
     <label>Stemmer <input type="range" id="sVol" min="0" max="1" step=".05" value="${SETTINGS.voice}"></label>
     <p class="small">Every character has a voice of its own, recorded for the game. No phone voice needed.</p>
-    <div class="brow"><button class="btn ghost" id="sTest">Hør en stemme</button></div></div>`;
+    <div class="brow"><button class="btn ghost" id="sTest">Hør en stemme</button></div>
+    ${lsGet('ravnsted_errors', []).length ? `<p class="small"><b>Seneste fejl</b> (send a screenshot of this to Claude)</p><div class="errlist">${lsGet('ravnsted_errors', []).map(x => `<p>${esc(x.t)} · ${esc(x.m)}<br><small>${esc(x.s)}</small></p>`).join('')}</div><div class="brow"><button class="btn ghost" id="sClr">Ryd fejl</button></div>` : ''}</div>`;
   $('#ov').appendChild(ov);
   const upd = () => { SETTINGS.music = +$('#sMus', ov).value; SETTINGS.sfx = +$('#sSfx', ov).value; SETTINGS.voiceOn = $('#sVo', ov).checked; SETTINGS.voice = +$('#sVol', ov).value; saveSettings(); AUDIO.volumes(); };
   ov.querySelectorAll('input').forEach(i => i.oninput = upd);
   $('#sTest', ov).onclick = () => { AUDIO.start(); TTS.say('Sikke en smuk kjole! Hvor har du købt den henne?', true, 'narrator'); };
   $('.sClose', ov).onclick = () => ov.remove();
+  if ($('#sClr', ov)) $('#sClr', ov).onclick = () => { lsSet('ravnsted_errors', []); $('.errlist', ov).remove(); $('#sClr', ov).remove(); };
 }
 
 /* ---------------- screens ---------------- */
 function show(id) { document.querySelectorAll('.screen').forEach(s => s.hidden = s.id !== id); }
 function title() {
+  RUN++; waitTap.cancel && waitTap.cancel(); TTS.stop();
   $('#ov').innerHTML = ''; show('title'); ART.mountTitle($('#tcv'));
   const saved = lsGet(KEY, null);
   const eFound = META.endings.length, eAll = SESSION.endings.length + SESSION.endings2.length;
@@ -372,6 +404,7 @@ function title() {
   };
 }
 async function lore() {
+  RUN++; waitTap.cancel && waitTap.cancel();
   newGame(); show('game'); $('#log').innerHTML = ''; ART.mountStage($('#cv'));
   const ov = document.createElement('div'); ov.className = 'lore'; $('#ov').appendChild(ov); prefetchVoices(LORE.map(l => ['narrator', l.da]));
   AUDIO.setTime('title');
@@ -389,7 +422,7 @@ async function lore() {
 }
 function resume(saved) {
   G = JSON.parse(saved.at.snap); G.at = saved.at; show('game'); $('#log').innerHTML = ''; ART.mountStage($('#cv'));
-  ART.setTimeFloat(G.time); AUDIO.setTime(G.time); addLog('Where were we …', 'n'); enter(saved.at.node);
+  ART.setTimeFloat(G.time); AUDIO.setTime(G.time); addLog('Where were we …', 'n'); enter(saved.at.node, true);
 }
 async function finish(e) {
   const e2 = ending2(G); [e, e2].forEach(x => META.endings.includes(x) || META.endings.push(x)); META.played++; saveMeta();
@@ -403,6 +436,20 @@ async function finish(e) {
   $('#ov').appendChild(ov); lsSet(KEY, null);
   $('#home', ov).onclick = title; $('#again', ov).onclick = () => { ov.remove(); lore(); };
 }
+
+/* ---------------- watchdog: the player must never be left with nothing to tap ---------------- */
+let idle = 0;
+setInterval(() => {
+  const game = !$('#game').hidden, act = $('#act'), ov = $('#ov');
+  const nothing = game && G && !ov.children.length && !act.querySelector('button') && !$('.unstick');
+  idle = nothing ? idle + 1 : 0;
+  if (idle >= 4) { // about 6 s with no button, no overlay and nothing loading
+    idle = 0; report(new Error('stuck at ' + G.node), 'watchdog');
+    const b = document.createElement('button'); b.className = 'cont unstick'; b.textContent = 'Videre';
+    b.onclick = () => { b.remove(); const N = SESSION.nodes[G.node]; if (optsOf(N).length) showOpts(); else enter(G.node, true); };
+    act.innerHTML = ''; act.appendChild(b);
+  }
+}, 1500);
 
 /* ---------------- boot ---------------- */
 window.addEventListener('load', () => {
