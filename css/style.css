@@ -196,3 +196,6 @@ h1 { font-family: var(--f-display); font-weight: 400; font-size: clamp(3.4rem, 1
 .errbox { position: fixed; z-index: 70; left: 12px; right: 12px; top: calc(60px + env(safe-area-inset-top, 0px)); background: var(--red); color: var(--paper); padding: 10px 14px; font-size: .9rem; box-shadow: 4px 4px 0 var(--ink); pointer-events: none; }
 .errlist { font-size: .8rem; max-height: 30vh; overflow-y: auto; border: 1px solid var(--ink); padding: 6px 10px; }
 .errlist p { margin: 0 0 8px; } .errlist small { color: var(--dim); word-break: break-all; }
+
+.mchip { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: max(14px, env(safe-area-inset-right, 0px)); z-index: 2; background: rgba(239,225,194,.92); color: var(--ink); border: 2px solid var(--ink); padding: 8px 14px; min-height: 44px; font-family: var(--f-sc); font-size: 1rem; animation: pulse 2.4s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(163,36,26,.35); } }

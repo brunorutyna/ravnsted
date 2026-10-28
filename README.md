@@ -20,11 +20,15 @@ Fantasy and everyday misery are the same thing here. The hill folk come down to 
 - **Tap any Danish word** for its meaning (press and hold inside buttons).
 - **Art: Træsnit.** Woodcut: black ink cut into bone paper, one dried red, and hand-coloured washes on clothes, as on old broadsheets. All drawn on canvas.
 - **Voices:** every character speaks with a voice of their own, recorded for the game from a Danish neural voice and reshaped per character: the nervous miller's wife, the old scribe with a tremble, the bailiff's deep voice, the hill woman's undertone, the thing in the marsh. No phone voice needed. Tap any word to hear it.
-- **Sound** generated in the browser: progressive, psychedelic heavy rock. Fuzz guitar in odd meters, a phased organ, a delay-soaked lead and a full kit, with a piece for each time of day, plus church bells, ink and coins.
+- **Music:** progressive, psychedelic heavy rock, recorded for the game: double-tracked distorted guitars, a Leslie organ, a fuzz-and-phaser lead with tape delay, bass and drums, in odd meters (7/8, 5/4, 6/8). A piece for each part of the day, a title song and an outro; they crossfade when the church bell strikes. Composed in code and played by sampled instruments (`tools/music/`). Effects (bells, ink, coins) are made in the browser.
 
 ## Chapters (spoiler-free)
 
 **3.2 · Den røde kjole.** About 30–40 minutes. Someone needs a dress sold before noon, no questions asked, and later someone needs a man found. Two contracts, seven endings in all, six mini-games. Grammar: adjectives with en-words, et-words and plurals (en rød kjole, et rødt tørklæde, røde handsker), colours and patterns, Sikke …!, Hvad kostede den?, Hvor har du købt den henne?, den / det / dem.
+
+## Credits
+
+Instrument samples: GeneralUser GS by S. Christian Collins (github.com/mrbumpy409/GeneralUser-GS). Voices: Piper, Danish voice "talesyntese".
 
 ## Development
 

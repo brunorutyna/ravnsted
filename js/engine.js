@@ -384,6 +384,14 @@ function settings() {
 
 /* ---------------- screens ---------------- */
 function show(id) { document.querySelectorAll('.screen').forEach(s => s.hidden = s.id !== id); }
+/* The title song starts with the first touch on the title screen (browsers allow no sound before one). */
+function titleMusic() {
+  const scr = $('#title'); let chip = $('#mChip');
+  if (AUDIO.running) { AUDIO.setTime('title'); if (chip) chip.remove(); return; }
+  if (!chip && !FAST) { chip = document.createElement('button'); chip.id = 'mChip'; chip.className = 'mchip'; chip.textContent = '♪ Tryk for musik'; scr.appendChild(chip); }
+  const go = () => { scr.removeEventListener('pointerdown', go); AUDIO.start('title'); const c = $('#mChip'); if (c) c.remove(); };
+  scr.addEventListener('pointerdown', go);
+}
 function title() {
   RUN++; waitTap.cancel && waitTap.cancel(); TTS.stop();
   $('#ov').innerHTML = ''; show('title'); ART.mountTitle($('#tcv'));
@@ -392,15 +400,16 @@ function title() {
   $('#tbtns').innerHTML = `${saved && saved.at ? '<button class="btn big" id="tCont">Fortsæt</button>' : ''}
     <button class="btn big ${saved && saved.at ? 'ghost' : ''}" id="tNew">${saved && saved.at ? 'Begynd forfra' : 'Begynd'}</button>
     <button class="btn ghost" id="tLess">Vælg kapitel</button><button class="btn ghost" id="tSet">Indstillinger</button>`;
-  $('#tNew').onclick = () => { AUDIO.start(); lore(); };
-  if ($('#tCont')) $('#tCont').onclick = () => { AUDIO.start(); resume(saved); };
+  $('#tNew').onclick = () => { AUDIO.start('title'); lore(); };
+  if ($('#tCont')) $('#tCont').onclick = () => { AUDIO.start(saved.at ? JSON.parse(saved.at.snap).time : 0); resume(saved); };
+  titleMusic();
   $('#tSet').onclick = settings;
   $('#tLess').onclick = () => {
     const ov = document.createElement('div'); ov.className = 'jr-ov';
     ov.innerHTML = `<div class="jr"><div class="jr-head"><h2>Kapitler</h2><button class="btn ghost lClose">Luk</button></div>
       <button class="lesson" id="L1"><b>3.2 · ${esc(SESSION.title)}</b><small>${esc(SESSION.book)}</small><small>${META.played ? `Spillet ${META.played} ${META.played === 1 ? 'gang' : 'gange'} · slutninger fundet: ${eFound} af ${eAll}` : 'Ikke spillet endnu'}</small></button>
       <p class="small">3.3 · coming next.</p></div>`;
-    $('#ov').appendChild(ov); $('.lClose', ov).onclick = () => ov.remove(); $('#L1', ov).onclick = () => { ov.remove(); AUDIO.start(); lore(); };
+    $('#ov').appendChild(ov); $('.lClose', ov).onclick = () => ov.remove(); $('#L1', ov).onclick = () => { ov.remove(); AUDIO.start('title'); lore(); };
   };
 }
 async function lore() {
