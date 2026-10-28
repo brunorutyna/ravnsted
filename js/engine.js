@@ -408,5 +408,6 @@ async function finish(e) {
 window.addEventListener('load', () => {
   TTS.init(); title();
   // a new deploy while the game is open: offer a reload
-  setInterval(async () => { try { const v = (await (await fetch('version.txt?' + Date.now())).text()).trim(); if (window.VERSION && v && v !== window.VERSION && !$('.newv')) { const b = document.createElement('button'); b.className = 'newv'; b.textContent = 'Ny version · genindlæs'; b.onclick = () => { save(); location.reload(); }; document.body.appendChild(b); } } catch (e) { } }, 60000);
+  // Only a real stamp counts: a missing file (404 page, or a preview with no version.txt) must never look like a new version.
+  setInterval(async () => { try { const r = await fetch('version.txt?' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const v = (await r.text()).trim(); if (/^\d{14}$/.test(window.VERSION || '') && /^\d{14}$/.test(v) && v > window.VERSION && !$('.newv')) { const b = document.createElement('button'); b.className = 'newv'; b.textContent = 'Ny version · genindlæs'; b.onclick = () => { save(); location.reload(); }; document.body.appendChild(b); } } catch (e) { } }, 60000);
 });

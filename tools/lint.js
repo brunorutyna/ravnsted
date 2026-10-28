@@ -48,6 +48,10 @@ const text = ['js/story.js', 'js/data.js', 'js/dict.js', 'js/minigames.js', 'js/
 for (const b of block) if (new RegExp(`(^|[^A-Za-zÆØÅæøå])${b}([^A-Za-zÆØÅæøå]|$)`, 'i').test(text)) err(`name of a real person: ${b}`);
 // endings count for the lesson list
 if (S.endings.length + S.endings2.length !== Object.keys(C.ENDINGS).length) err('ENDINGS and the session ending lists disagree');
+// Bruno, 2026-10-28: the "Ny version" sticker showed all the time. Only a 14-digit stamp may trigger it.
+if (!/\/\^\\d\{14\}\$\/\.test\(v\)/.test(read('js/engine.js'))) err('version check must accept only a 14-digit stamp (js/engine.js)');
+const vt = fs.existsSync(path.join(ROOT, 'version.txt')) ? read('version.txt').trim() : '', vi = (read('index.html').match(/window.VERSION = '(\d+)'/) || [])[1];
+if (vt !== vi) err(`version.txt (${vt}) and window.VERSION in index.html (${vi}) differ: run tools/bump.sh`);
 warns.forEach(w => console.log('warn:', w)); errors.forEach(e => console.log('ERROR:', e));
 console.log(`${Object.keys(N).length} nodes, ${all.size} Danish words. ${errors.length} errors, ${warns.length} warnings.`);
 process.exit(errors.length ? 1 : 0);
