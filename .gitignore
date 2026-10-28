@@ -1,0 +1,3 @@
+tools/speech.json
+node_modules/
+*.npy

@@ -54,3 +54,38 @@ function numDa(n) {
   const t = Math.floor(n / 10), u = n % 10;
   return u ? one[u] + 'og' + tens[t] : tens[t];
 }
+
+/* ---------- shared by the game and the voice generator ---------- */
+const PROPER = ['Sidsel', 'Ribe', 'Ellen', 'Kragen', 'Gertrud', 'Mads', 'Hulda', 'Jens', 'Bodil', 'Absalon', 'Herluf'];
+// a built sentence as it is shown and spoken: proper nouns keep their capital, comma after a first ja / nej / jo
+function sentenceOf(words, punct) {
+  const w = words.map(x => PROPER.includes(x) ? x : x.toLowerCase());
+  return w.join(' ').replace(/^(nej|ja|jo) /, '$1, ').replace(/^./, c => c.toUpperCase()) + punct;
+}
+// the key a voice clip is stored under: who + the words, without case or punctuation
+function vkey(who, text) { return who + '|' + String(text).toLowerCase().replace(/[^a-z0-9æøåéü]+/g, ' ').trim(); }
+// the finale: what the player wears
+const WEAR_PLACES = [['i', 'en', 'butik'], ['i', 'en', 'genbrugsbutik'], ['på', 'et', 'loppemarked'], ['på', 'nettet'], ['i', 'et', 'indkøbscenter']];
+const WEAR_GIFTS = [['af', 'min', 'mor'], ['af', 'en', 'ven']];
+const PAIRS = ['bukser', 'sko', 'handsker', 'sokker', 'støvler'];
+function wearOf(n, c) {
+  const g = WEAR_NOUNS[n][0], forms = COLORS[c].f, adj = g === 'en' ? forms[0] : g === 'et' ? forms[1] : forms[2];
+  const art = g === 'pl' ? (PAIRS.includes(n) ? 'et par' : 'nogle') : g;
+  const okArts = g === 'en' ? [['en']] : g === 'et' ? [['et']] : [['nogle'], ['et', 'par']];
+  const en = (g === 'pl' ? '' : /^[aeiou]/.test(COLORS[c].en) ? 'an ' : 'a ') + COLORS[c].en + ' ' + WEAR_NOUNS[n][1];
+  return { n, c, g, forms, adj, art, okArts, en, pron: g === 'en' ? 'den' : g === 'et' ? 'det' : 'dem',
+    da: `${art.charAt(0).toUpperCase() + art.slice(1)} ${adj} ${n}`, answers: okArts.map(a => ['Jeg', 'har', ...a, adj, n, 'på']) };
+}
+function whereAnswers(pron) {
+  const out = [];
+  WEAR_PLACES.forEach(p => { out.push(['Jeg', 'har', 'købt', pron, ...p]); out.push([pron, 'har', 'jeg', 'købt', ...p]); });
+  WEAR_GIFTS.forEach(p => { out.push(['Jeg', 'har', 'fået', pron, ...p]); out.push([pron, 'har', 'jeg', 'fået', ...p]); });
+  return out;
+}
+const HAGGLE_RANGE = { gertrud: [15, 50], mads: [5, 22] };
+
+const INSPECT = [
+  { k: 'kant', x: .5, y: .86, da: 'Kanten er våd.', en: 'The hem is wet.' },
+  { k: 'som', x: .32, y: .55, da: 'Der er et siv i sømmen.', en: 'There is a reed in the seam.' },
+  { k: 'krave', x: .5, y: .14, da: 'Der er mudder på kraven.', en: 'There is mud on the collar.' },
+];

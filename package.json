@@ -5,6 +5,7 @@
   "scripts": {
     "lint": "node tools/lint.js",
     "playtest": "node tools/playtest.js",
-    "test": "node tools/lint.js && node tools/playtest.js --runs 3"
+    "voices": "node tools/speech.js && python3 tools/voices.py",
+    "test": "node tools/lint.js && node tools/speech.js --check && node tools/playtest.js --runs 3"
   }
 }

@@ -2,7 +2,7 @@
    fuzz guitar in odd meters, a phased Leslie organ, a delay-soaked lead, a real-feeling kit.
    One piece per time of day, a title song, and woodcut-world effects (bells, ink, coins). */
 const AUDIO = (() => {
-  let ac = null, master, music, sfxBus, comp, verb, delay, gIn, gOut, leadIn, orgIn, bassIn, drumBus, noise, duckG;
+  let ac = null, voiceBus, sprites = new Map(), master, music, sfxBus, comp, verb, delay, gIn, gOut, leadIn, orgIn, bassIn, drumBus, noise, duckG;
   let song = null, songKey = null, bar = 0, nextT = 0, timer = null, sec = 0, secBar = 0;
   const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
   const E2 = 40, A2 = 45, D2 = 38, B1 = 35;
@@ -15,7 +15,7 @@ const AUDIO = (() => {
     if (ac) return; ac = new (window.AudioContext || window.webkitAudioContext)();
     master = ac.createGain(); comp = ac.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4; comp.attack.value = .005; comp.release.value = .2;
     master.connect(comp); comp.connect(ac.destination);
-    music = ac.createGain(); duckG = ac.createGain(); music.connect(duckG); duckG.connect(master); sfxBus = ac.createGain(); sfxBus.connect(master);
+    music = ac.createGain(); duckG = ac.createGain(); music.connect(duckG); duckG.connect(master); sfxBus = ac.createGain(); sfxBus.connect(master); voiceBus = ac.createGain(); voiceBus.connect(master);
     verb = ac.createConvolver(); verb.buffer = impulse(3.2, 2.6); const vg = ac.createGain(); vg.gain.value = .32; verb.connect(vg); vg.connect(music);
     delay = ac.createDelay(2); const fb = ac.createGain(); fb.gain.value = .42; const dlp = ac.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 2400; delay.connect(dlp); dlp.connect(fb); fb.connect(delay); const dg = ac.createGain(); dg.gain.value = .45; dlp.connect(dg); dg.connect(music); dg.connect(verb);
     lfo(.07, .004, delay.delayTime); // the delay drifts: tape wobble
@@ -42,7 +42,7 @@ const AUDIO = (() => {
     noise = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate); const nd = noise.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
     volumes();
   }
-  function volumes() { if (!ac) return; music.gain.setTargetAtTime(SETTINGS.music * .9, ac.currentTime, .1); sfxBus.gain.setTargetAtTime(SETTINGS.sfx, ac.currentTime, .1); }
+  function volumes() { if (!ac) return; music.gain.setTargetAtTime(SETTINGS.music * .9, ac.currentTime, .1); sfxBus.gain.setTargetAtTime(SETTINGS.sfx, ac.currentTime, .1); voiceBus.gain.setTargetAtTime(SETTINGS.voice * 1.1, ac.currentTime, .1); }
 
   /* ---------- instruments ---------- */
   function env(g, t, a, d, peak, sus = 0) { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + a); g.gain.setTargetAtTime(sus, t + a, d); }
@@ -156,6 +156,18 @@ const AUDIO = (() => {
     setTime(k) { if (!ac) return; play(k); },
     sfx(n) { if (!ac || FAST) return; try { SFX[n] && SFX[n](); } catch (e) { } },
     bell() { if (!ac || FAST) return; bellAt(ac.currentTime, 147, .4); },
+    /* voice sprites: fetched and decoded once, the last few kept */
+    sprite(name) {
+      init(); if (sprites.has(name)) { const p = sprites.get(name); sprites.delete(name); sprites.set(name, p); return p; }
+      const p = fetch(`audio/voice/${name}.mp3`).then(r => { if (!r.ok) throw new Error('voice ' + name); return r.arrayBuffer(); }).then(b => new Promise((res, rej) => ac.decodeAudioData(b, res, rej)));
+      p.catch(() => sprites.delete(name)); sprites.set(name, p); while (sprites.size > 12) sprites.delete(sprites.keys().next().value); return p;
+    },
+    prefetch(names) { if (!ac) return; names.forEach(n => this.sprite(n).catch(() => { })); },
+    clip(m, onEnd) {
+      init(); if (ac.state === 'suspended') ac.resume(); let src = null, stopped = false;
+      this.sprite(m[0]).then(buf => { if (stopped) return; src = ac.createBufferSource(); src.buffer = buf; src.connect(voiceBus); src.onended = onEnd; src.start(0, Math.max(0, m[1] - .02), m[2] + .04); }).catch(onEnd);
+      return { stop() { stopped = true; try { src && src.stop(); } catch (e) { } } };
+    },
     duck(on) { if (!ac) return; duckG.gain.setTargetAtTime(on ? .45 : 1, ac.currentTime, .15); },
     volumes,
     get ctx() { return ac; },

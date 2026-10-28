@@ -20,27 +20,34 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } ca
 let SETTINGS = Object.assign({ music: .7, sfx: .8, voice: 1, voiceOn: true, rate: .9 }, lsGet(SET_KEY, {}));
 const saveSettings = () => lsSet(SET_KEY, SETTINGS);
 
-/* ---------------- Danish voice: a line always finishes, the next waits ---------------- */
+/* ---------------- voices: every character has its own recorded voice (audio/voice, js/voicemap.js).
+   A line being spoken always finishes; the next one waits. Tapping ahead keeps only the newest waiting line.
+   ▶ Hør (force) replays at once. A line with no clip falls back to the phone's Danish voice. ---------------- */
 const TTS = {
-  ok: 'speechSynthesis' in window, voice: null, busy: false, next: null,
-  init() { if (!this.ok) return; const p = () => { this.voice = speechSynthesis.getVoices().find(v => /^da/i.test(v.lang)) || null; }; p(); try { speechSynthesis.onvoiceschanged = p; } catch (e) { } },
-  say(t, force) {
-    if (!this.ok || FAST || (!SETTINGS.voiceOn && !force)) return Promise.resolve();
-    let done; const job = { t, p: new Promise(r => done = r) }; job.done = done;
-    if (force || !this.busy) { try { speechSynthesis.cancel(); } catch (e) { } if (this.next) this.next.done(); this.next = null; this.speak(job); }
+  busy: false, next: null, cur: null, phone: null,
+  init() { if (!('speechSynthesis' in window)) return; const p = () => { this.phone = speechSynthesis.getVoices().find(v => /^da/i.test(v.lang)) || null; }; p(); try { speechSynthesis.onvoiceschanged = p; } catch (e) { } },
+  has(t, who = 'narrator') { return !!VOICEMAP[vkey(who, t)]; },
+  say(t, force, who = 'narrator') {
+    if (FAST || (!SETTINGS.voiceOn && !force)) { if (!VOICEMAP[vkey(who, t)]) (__dev.voiceMiss = __dev.voiceMiss || []).push(vkey(who, t)); return Promise.resolve(); }
+    let done; const job = { t, who, p: new Promise(r => done = r) }; job.done = done;
+    if (force || !this.busy) { this.stop(); if (this.next) this.next.done(); this.next = null; this.speak(job); }
     else { if (this.next) this.next.done(); this.next = job; }
     return job.p;
   },
+  stop() { try { this.cur && this.cur.stop(); } catch (e) { } this.cur = null; try { speechSynthesis.cancel(); } catch (e) { } },
   speak(job) {
-    const tok = this.tok = (this.tok || 0) + 1; this.busy = true; AUDIO.duck(true);
-    let fired = false; const end = () => { if (fired || tok !== this.tok) return; fired = true; this.busy = false; job.done(); const n = this.next; this.next = null; if (n) this.speak(n); else AUDIO.duck(false); };
+    const tok = this.tok = (this.tok || 0) + 1; this.busy = true; this.who = job.who; AUDIO.duck(true);
+    let fired = false; const end = () => { if (fired || tok !== this.tok) return; fired = true; this.busy = false; this.cur = null; job.done(); const n = this.next; this.next = null; if (n) this.speak(n); else AUDIO.duck(false); };
+    const m = VOICEMAP[vkey(job.who, job.t)];
+    if (m && AUDIO.ctx) { this.cur = AUDIO.clip(m, end); setTimeout(end, (m[2] + 4) * 1000); return; }
+    if (!m) { (__dev.voiceMiss = __dev.voiceMiss || []).push(vkey(job.who, job.t)); }
     try {
-      const u = new SpeechSynthesisUtterance(job.t.replace(/[“”…]/g, ' ')); u.lang = 'da-DK'; if (this.voice) u.voice = this.voice; u.rate = SETTINGS.rate; u.pitch = .85; u.volume = SETTINGS.voice;
-      u.onend = u.onerror = end; setTimeout(end, 2500 + job.t.length * 110 / SETTINGS.rate);
-      speechSynthesis.speak(u);
+      const u = new SpeechSynthesisUtterance(job.t.replace(/[“”…]/g, ' ')); u.lang = 'da-DK'; if (this.phone) u.voice = this.phone; u.rate = .9; u.pitch = .85; u.volume = SETTINGS.voice;
+      u.onend = u.onerror = end; setTimeout(end, 2500 + job.t.length * 120); speechSynthesis.speak(u);
     } catch (e) { end(); }
   },
 };
+function prefetchVoices(lines) { const s = new Set(); lines.forEach(([who, t]) => { const m = VOICEMAP[vkey(who, t)]; if (m) s.add(m[0]); }); AUDIO.prefetch([...s]); }
 
 /* ---------------- state ---------------- */
 let G = null;
@@ -67,7 +74,7 @@ function showTip(el, k) {
   const r = el.getBoundingClientRect(); const tw = Math.min(300, innerWidth - 24);
   tip.style.maxWidth = tw + 'px'; tip.style.left = Math.max(12, Math.min(innerWidth - tw - 12, r.left + r.width / 2 - tw / 2)) + 'px';
   tip.style.top = (r.top > 110 ? r.top - 8 : r.bottom + 48) + 'px'; tip.classList.toggle('below', r.top <= 110);
-  clearTimeout(showTip.t); showTip.t = setTimeout(() => tip.hidden = true, 3500); AUDIO.sfx('tick');
+  clearTimeout(showTip.t); showTip.t = setTimeout(() => tip.hidden = true, 3500); TTS.say(k, true, 'word');
 }
 document.addEventListener('click', e => { const w = e.target.closest('.w'); if (w && !w.closest('button')) { e.stopPropagation(); showTip(w, w.dataset.w); } else if (!e.target.closest('#tip')) $('#tip').hidden = true; }, true);
 // long-press inside buttons shows the meaning instead of pressing
@@ -128,9 +135,9 @@ function sayLine(st) {
   const P = NPCS[st.say]; ART.speaker(st.say);
   const d = addLog(`<b class="who">${esc(P.name)}${P.role ? ` <small>${esc(P.role)}</small>` : ''}</b><p class="da">${daHTML(st.da)}</p>
     <div class="tools"><button class="tb hear" aria-label="Hør">▶ Hør</button><button class="tb tr">Engelsk · 1 kr.</button></div><p class="en" hidden>${esc(st.en)}</p>`, 'say');
-  $('.hear', d).onclick = e => { e.stopPropagation(); TTS.say(st.da, true); };
+  $('.hear', d).onclick = e => { e.stopPropagation(); TTS.say(st.da, true, st.say); };
   $('.tr', d).onclick = e => { e.stopPropagation(); if (G.kr < 1) { toast('Du har ingen penge.'); return; } kr(-1, 'oversættelse'); $('.en', d).hidden = false; e.target.remove(); G.stats.eng++; };
-  TTS.say(st.da); AUDIO.sfx('voice');
+  TTS.say(st.da, false, st.say);
 }
 
 /* ---------------- time passing ---------------- */
@@ -138,7 +145,7 @@ async function passTime(k) {
   const from = G.time; if (k === from) return; G.time = k; hud(); save();
   const T = TIMES[k]; AUDIO.setTime(k);
   const ov = document.createElement('div'); ov.className = 'tcard'; ov.innerHTML = `<canvas></canvas><div class="tc-txt"><h2>${T.name}</h2><p class="da">${daHTML('Klokken slår ' + T.clock + '.')}</p><p class="strikes"></p></div>`;
-  $('#ov').appendChild(ov);
+  $('#ov').appendChild(ov); TTS.say('Klokken slår ' + T.clock + '.', false, 'narrator');
   const cv = $('canvas', ov), c = cv.getContext('2d'); const fit = () => { cv.width = innerWidth; cv.height = innerHeight; }; fit();
   const strikes = T.hour; const dur = FAST ? 0 : 1400 + strikes * 380 + 900; const t0 = performance.now();
   let s = 0;
@@ -162,6 +169,7 @@ async function enter(id) {
   G.node = id; G.at = { node: id, snap: snap() }; save();
   if (N.time !== undefined && N.time > G.time) { G.time = N.time; }
   ART.setPlace(N.place, G.time); G.npcs = (N.npcs || []).slice(); ART.setNpcs(G.npcs); hud();
+  prefetchVoices((N.lines || []).filter(x => x && x.say).map(x => [x.say, x.da]));
   __dev.node = id;
   const r = await runSteps(N.lines);
   if (r && r.go) return enter(r.go);
@@ -234,12 +242,12 @@ function buildSheet(spec) {
     $('#bOk', ov).onclick = () => {
       const words = built.map(t => t.textContent);
       if (spec.check(words)) {
-        const sent = words.join(' ').replace(/^(nej|ja|jo) /i, '$1, ').replace(/^\w|^[æøå]/i, c => c.toUpperCase()) + spec.punct;
+        const sent = sentenceOf(words, spec.punct);
         G.stats.built++; if (!mistakes) G.stats.perfect++; G.lastBuilt = words.map(norm);
         const why = spec.rules.filter(r => RULES[r]); why.forEach(r => { (G.rules[r] = G.rules[r] || []).includes(sent) || G.rules[r].push(sent); });
         const d = addLog(`<b class="who">Kragen</b><p class="da">${daHTML(sent)}</p>${why.length ? '<button class="tb why">Hvorfor?</button>' : ''}<div class="whybox" hidden></div>`, 'say you');
         if (why.length) $('.why', d).onclick = e => { e.stopPropagation(); const box = $('.whybox', d); box.hidden = !box.hidden; box.innerHTML = why.map(r => ruleHTML(r)).join(''); };
-        AUDIO.sfx(mistakes ? 'ok' : 'perfect'); TTS.say(sent); if (spec.done) spec.done(words);
+        AUDIO.sfx(mistakes ? 'ok' : 'perfect'); TTS.say(sent, false, 'kragen'); if (spec.done) spec.done(words);
         close({ mistakes, words });
       } else {
         mistakes++; AUDIO.sfx('wrong'); line.classList.add('shake'); setTimeout(() => line.classList.remove('shake'), 400);
@@ -263,36 +271,24 @@ const SPECIAL_BUILD = {
         const n = t.dataset.n; $('.sheet', ov).innerHTML = `<p class="prompt">Which colour?</p><div class="pool items">${Object.keys(COLORS).map(c => `<button class="tile pickc" data-c="${c}"><i class="sw" style="background:${COLORS[c].hex}"></i>${c}</button>`).join('')}</div>`;
         __dev.cur = { pickC: true };
         ov.querySelectorAll('.pickc').forEach(cb => cb.onclick = async () => {
-          const c = cb.dataset.c; ov.remove();
-          const g = WEAR_NOUNS[n][0], forms = COLORS[c].f, adj = g === 'en' ? forms[0] : g === 'et' ? forms[1] : forms[2];
-          const art = g === 'pl' ? (n === 'bukser' || n === 'sko' || n === 'handsker' || n === 'sokker' || n === 'støvler' ? 'et par' : 'nogle') : g;
-          const sample = ['Jeg', 'har', ...art.split(' '), adj, n, 'på'];
-          const okArts = g === 'en' ? [['en']] : g === 'et' ? [['et']] : [['nogle'], ['et', 'par']];
-          const enTxt = (g === 'pl' ? '' : /^[aeiou]/.test(COLORS[c].en) ? 'an ' : 'a ') + COLORS[c].en + ' ' + WEAR_NOUNS[n][1];
-          await buildSheet({ prompt: `I am wearing ${enTxt}.`, tiles: shuffle(['Jeg', 'har', 'på', 'en', 'et', 'nogle', 'par', ...forms.filter((x, i, a) => a.indexOf(x) === i), n]), punct: '.', rules: ['adj-en', 'adj-et', 'adj-pl', 'have-paa'],
-            tip: g === 'en' ? `${n} is an en-word: en ${forms[0]} ${n}.` : g === 'et' ? `${n} is an et-word: et ${forms[1]} ${n}.` : `${n} is plural: nogle ${forms[2]} ${n} (or et par ${forms[2]} ${n}).`,
-            check: w => { const s = w.map(norm); if (s[0] !== 'jeg' || s[1] !== 'har' || s[s.length - 1] !== 'på') return false; const mid = s.slice(2, -1); return okArts.some(a => mid.length === a.length + 2 && a.every((x, k) => mid[k] === x) && mid[a.length] === adj && mid[a.length + 1] === n); },
-            sample: () => sample, english: `I am wearing ${enTxt}.` });
-          const daArt = art.charAt(0).toUpperCase() + art.slice(1);
-          G.wear = { da: `${daArt} ${adj} ${n}`, en: enTxt.replace(/^./, x => x.toUpperCase()), pron: g === 'en' ? 'den' : g === 'et' ? 'det' : 'dem', n };
+          const c = cb.dataset.c; ov.remove(); const W = wearOf(n, c);
+          await buildSheet({ prompt: `I am wearing ${W.en}.`, tiles: shuffle(['Jeg', 'har', 'på', 'en', 'et', 'nogle', 'par', ...W.forms.filter((x, i, a) => a.indexOf(x) === i), n]), punct: '.', rules: ['adj-en', 'adj-et', 'adj-pl', 'have-paa'],
+            tip: W.g === 'en' ? `${n} is an en-word: en ${W.forms[0]} ${n}.` : W.g === 'et' ? `${n} is an et-word: et ${W.forms[1]} ${n}.` : `${n} is plural: nogle ${W.forms[2]} ${n} (or et par ${W.forms[2]} ${n}).`,
+            check: w => W.answers.some(a => a.length === w.length && a.every((x, k) => norm(x) === norm(w[k]))),
+            sample: () => W.answers[0], english: `I am wearing ${W.en}.` });
+          G.wear = { da: W.da, en: W.en.replace(/^./, x => x.toUpperCase()), pron: W.pron, n };
           save(); res({ mistakes: 0 });
         });
       });
     });
   },
   where(b) {
-    const pron = G.wear.pron;
-    const places = [['i', 'en', 'butik'], ['i', 'en', 'genbrugsbutik'], ['på', 'et', 'loppemarked'], ['på', 'nettet'], ['i', 'et', 'indkøbscenter']];
-    const gifts = [['af', 'min', 'mor'], ['af', 'en', 'ven']];
-    const okWhere = w => places.some(p => p.join(' ') === w.join(' ')), okGift = w => gifts.some(p => p.join(' ') === w.join(' '));
+    const pron = G.wear.pron, ok = whereAnswers(pron);
     return buildSheet({ prompt: `I bought ${pron === 'dem' ? 'them' : 'it'} … (or: I got ${pron === 'dem' ? 'them' : 'it'} from …)`, punct: '.', rules: ['pron-match', 'har-koebt', 'i-paa', 'inversion'],
       tiles: ['Jeg', 'har', 'købt', 'fået', 'den', 'det', 'dem', 'i', 'på', 'af', 'en', 'et', 'butik', 'genbrugsbutik', 'loppemarked', 'nettet', 'indkøbscenter', 'min', 'mor', 'ven'],
       tip: `What you are wearing is ${pron === 'den' ? 'an en-word: den' : pron === 'det' ? 'an et-word: det' : 'plural: dem'}. Shops take i (i en butik), markets and the net take på.`,
-      check: w => { const s = w.map(norm); let rest;
-        if (s[0] === 'jeg' && s[1] === 'har') { if (s[3] !== pron) return false; rest = [s[2], ...s.slice(4)]; }
-        else if (s[0] === pron && s[1] === 'har' && s[2] === 'jeg') rest = s.slice(3); else return false;
-        const v = rest[0], tail = rest.slice(1); return (v === 'købt' && okWhere(tail)) || (v === 'fået' && okGift(tail)); },
-      sample: () => ['Jeg', 'har', 'købt', pron, 'på', 'et', 'loppemarked'], english: 'I bought it somewhere.', done: w => { G.where = w.map(norm).join(' '); } });
+      check: w => ok.some(a => a.length === w.length && a.every((x, k) => norm(x) === norm(w[k]))),
+      sample: () => ok[4], english: 'I bought it somewhere.', done: w => { G.where = w.map(norm).join(' '); } });
   },
 };
 
@@ -334,25 +330,24 @@ function journal() {
     <div class="brow"><button class="btn ghost" id="jSet">Indstillinger</button><button class="btn ghost" id="jHome">Til forsiden</button></div></div>`;
   $('#ov').appendChild(ov);
   ov.querySelectorAll('.tabb').forEach(b => b.onclick = () => { ov.querySelectorAll('.tabb').forEach(x => x.classList.toggle('on', x === b)); ov.querySelectorAll('.tab').forEach(t => t.hidden = t.dataset.t !== b.dataset.t); });
-  ov.querySelectorAll('.wd').forEach(b => b.onclick = () => TTS.say(b.dataset.w, true));
+  ov.querySelectorAll('.wd').forEach(b => b.onclick = () => TTS.say(b.dataset.w, true, 'word'));
   $('.jClose', ov).onclick = () => ov.remove();
   $('#jSet', ov).onclick = () => settings();
   $('#jHome', ov).onclick = () => { ov.remove(); save(); title(); };
 }
 function settings() {
   const ov = document.createElement('div'); ov.className = 'jr-ov set-ov';
-  const voices = TTS.ok ? speechSynthesis.getVoices().filter(v => /^da/i.test(v.lang)) : [];
   ov.innerHTML = `<div class="jr"><div class="jr-head"><h2>Indstillinger</h2><button class="btn ghost sClose">Luk</button></div>
     <label>Musik <input type="range" id="sMus" min="0" max="1" step=".05" value="${SETTINGS.music}"></label>
     <label>Lyde <input type="range" id="sSfx" min="0" max="1" step=".05" value="${SETTINGS.sfx}"></label>
-    <label class="chk"><input type="checkbox" id="sVo" ${SETTINGS.voiceOn ? 'checked' : ''}> Dansk stemme</label>
-    <label>Tempo <input type="range" id="sRate" min=".6" max="1.2" step=".05" value="${SETTINGS.rate}"></label>
-    <p class="small">${voices.length ? 'Danish voice found: ' + esc(voices[0].name) : 'No Danish voice found on this device. Android: Settings → Text-to-speech → install Danish.'}</p>
-    <div class="brow"><button class="btn ghost" id="sTest">Test stemmen</button></div></div>`;
+    <label class="chk"><input type="checkbox" id="sVo" ${SETTINGS.voiceOn ? 'checked' : ''}> Stemmer</label>
+    <label>Stemmer <input type="range" id="sVol" min="0" max="1" step=".05" value="${SETTINGS.voice}"></label>
+    <p class="small">Every character has a voice of its own, recorded for the game. No phone voice needed.</p>
+    <div class="brow"><button class="btn ghost" id="sTest">Hør en stemme</button></div></div>`;
   $('#ov').appendChild(ov);
-  const upd = () => { SETTINGS.music = +$('#sMus', ov).value; SETTINGS.sfx = +$('#sSfx', ov).value; SETTINGS.voiceOn = $('#sVo', ov).checked; SETTINGS.rate = +$('#sRate', ov).value; saveSettings(); AUDIO.volumes(); };
+  const upd = () => { SETTINGS.music = +$('#sMus', ov).value; SETTINGS.sfx = +$('#sSfx', ov).value; SETTINGS.voiceOn = $('#sVo', ov).checked; SETTINGS.voice = +$('#sVol', ov).value; saveSettings(); AUDIO.volumes(); };
   ov.querySelectorAll('input').forEach(i => i.oninput = upd);
-  $('#sTest', ov).onclick = () => TTS.say('Sikke en smuk kjole! Hvor har du købt den henne?', true);
+  $('#sTest', ov).onclick = () => { AUDIO.start(); TTS.say('Sikke en smuk kjole! Hvor har du købt den henne?', true, 'narrator'); };
   $('.sClose', ov).onclick = () => ov.remove();
 }
 
@@ -378,13 +373,13 @@ function title() {
 }
 async function lore() {
   newGame(); show('game'); $('#log').innerHTML = ''; ART.mountStage($('#cv'));
-  const ov = document.createElement('div'); ov.className = 'lore'; $('#ov').appendChild(ov);
+  const ov = document.createElement('div'); ov.className = 'lore'; $('#ov').appendChild(ov); prefetchVoices(LORE.map(l => ['narrator', l.da]));
   AUDIO.setTime('title');
   for (let i = 0; i < LORE.length && !ov.dataset.skip; i++) {
     const L = LORE[i];
     ov.innerHTML = `<canvas></canvas><div class="lore-txt"><p class="da big">${daHTML(L.da)}</p><p class="en">${esc(L.en)}</p></div><div class="brow"><button class="btn ghost" id="lSkip">Spring over</button><button class="btn" id="lNext">${i < LORE.length - 1 ? 'Videre' : 'Begynd'}</button></div>`;
     const cv = $('canvas', ov); cv.width = Math.min(760, innerWidth) * 2; cv.height = cv.width * .55; ART.lore(cv.getContext('2d'), cv.width, cv.height, L.art);
-    TTS.say(L.da);
+    TTS.say(L.da, false, 'narrator');
     await new Promise(r => { $('#lNext', ov).onclick = r; $('#lSkip', ov).onclick = () => { ov.dataset.skip = 1; r(); }; if (FAST) r(); });
     AUDIO.sfx('page');
   }

@@ -9,18 +9,14 @@ const val = (x) => typeof x === 'function' ? x(G) : x;
 const MINI = {
   /* ---- look closely: tap the three wrong things about the dress ---- */
   async inspect(m) {
-    const spots = [
-      { k: 'kant', x: .5, y: .86, da: 'Kanten er våd.', en: 'The hem is wet.' },
-      { k: 'som', x: .32, y: .55, da: 'Der er et siv i sømmen.', en: 'There is a reed in the seam.' },
-      { k: 'krave', x: .5, y: .14, da: 'Der er mudder på kraven.', en: 'There is mud on the collar.' },
-    ];
+    const spots = INSPECT;
     const ov = miniOv('inspect', `<p class="mh">Kig godt efter</p><p class="small">Three things are wrong with this dress. Tap them.</p><div class="dressbox"><canvas width="600" height="700"></canvas>${spots.map(s => `<button class="mtap spot" data-k="${s.k}" style="left:${s.x * 100}%;top:${s.y * 100}%" aria-label="look here">?</button>`).join('')}</div><div class="found"></div><div class="mbrow"></div>`);
     ART.dress($('canvas', ov).getContext('2d'), 600, 700);
     let found = 0; __dev.answer = '.spot:not(.done)';
     ov.querySelectorAll('.spot').forEach(b => b.onclick = () => {
       if (b.classList.contains('done')) return; b.classList.add('done'); b.textContent = '✕'; found++;
       const s = spots.find(x => x.k === b.dataset.k); const p = document.createElement('p'); p.className = 'da'; p.innerHTML = daHTML(s.da) + ` <span class="small">${esc(s.en)}</span>`; $('.found', ov).appendChild(p);
-      TTS.say(s.da); AUDIO.sfx('tick'); G.use.oeje++;
+      TTS.say(s.da, true, 'kragen'); AUDIO.sfx('tick'); G.use.oeje++;
       if (found === spots.length) doneBtn(ov);
     });
     const skip = document.createElement('button'); skip.className = 'btn ghost'; skip.textContent = 'Nok'; $('.mbrow', ov).appendChild(skip);
@@ -55,7 +51,7 @@ const MINI = {
     const say = val(m.say), en = val(m.en); const crowd = shuffle(m.crowd.filter(c => !c.onlyIf || G.flags[c.onlyIf]));
     const ov = miniOv('spot', `<p class="mh">Find personen</p><p class="da desc">${daHTML(say)}</p><button class="tb hear">▶ Hør</button><details class="small"><summary>English</summary>${esc(en)}</details><div class="crowd">${crowd.map((c, i) => `<button class="mtap fig" data-ok="${c.name === m.target ? 1 : 0}" data-i="${i}"><canvas width="160" height="240"></canvas></button>`).join('')}</div><div class="mbrow"></div>`);
     ov.querySelectorAll('.fig canvas').forEach((cv, i) => ART.figureCard(cv.getContext('2d'), 160, 240, crowd[i]));
-    $('.hear', ov).onclick = () => TTS.say(say, true); TTS.say(say);
+    $('.hear', ov).onclick = () => TTS.say(say, true, 'narrator'); TTS.say(say, false, 'narrator');
     __dev.answer = '.fig[data-ok="1"]';
     const ok = await new Promise(res => ov.querySelectorAll('.fig').forEach(b => b.onclick = () => {
       ov.querySelectorAll('.fig').forEach(x => { x.disabled = true; if (x.dataset.ok === '1') x.classList.add('right'); });
@@ -66,29 +62,29 @@ const MINI = {
 
   /* ---- haggling: the buyer says a price in Danish; hear it right, then push or accept ---- */
   async haggle(m) {
-    const P = NPCS[m.buyer]; let offer = Math.min(m.cap, Math.max(5, Math.round(val(m.base)))); let pushes = 0, final = false;
+    const P = NPCS[m.buyer]; let offer = Math.min(m.cap, Math.max(HAGGLE_RANGE[m.buyer][0], Math.round(val(m.base)))); let pushes = 0, final = false;
     const ov = miniOv('haggle', `<p class="mh">Handel · ${esc(P.name)}</p><div class="hlog"></div><div class="hact"></div><div class="mbrow"></div>`);
     const hlog = $('.hlog', ov), act = $('.hact', ov);
     const line = (who, html) => { const p = document.createElement('p'); p.innerHTML = `<b>${esc(who)}</b> ${html}`; hlog.appendChild(p); hlog.scrollTop = 1e6; };
     const confusers = n => { const s = new Set([n]); const sw = (n % 10) * 10 + Math.floor(n / 10); if (sw !== n && sw > 4 && sw < 100) s.add(sw); [n + 10, n - 10, n + 1, n + 5].forEach(x => { if (s.size < 4 && x > 4 && x < 100) s.add(x); }); return shuffle([...s]); };
     while (true) {
       const words = `${final ? 'Mit sidste bud: ' : 'Jeg giver dig '}${numDa(offer)} kroner.`;
-      line(P.name, daHTML(words)); TTS.say(words);
+      line(P.name, daHTML(words)); TTS.say(words, false, m.buyer);
       act.innerHTML = `<p class="small">How much did ${esc(P.name)} say?</p><div class="chips">${confusers(offer).map(n => `<button class="mtap chip num" data-ok="${n === offer ? 1 : 0}">${n} kr.</button>`).join('')}</div><button class="tb hear">▶ Hør igen</button>`;
-      $('.hear', act).onclick = () => TTS.say(words, true);
+      $('.hear', act).onclick = () => TTS.say(words, true, m.buyer);
       __dev.answer = '.num[data-ok="1"]';
       const heard = await new Promise(r => act.querySelectorAll('.num').forEach(b => b.onclick = () => r(b.dataset.ok === '1' ? offer : parseInt(b.textContent))));
       if (heard !== offer) {
-        line('Kragen', daHTML('Ja … det er en aftale.')); AUDIO.sfx('wrong');
+        line('Kragen', daHTML('Ja … det er en aftale.')); TTS.say('Ja, det er en aftale.', false, 'kragen'); AUDIO.sfx('wrong');
         line('', `<i>You nodded at ${heard}. ${esc(P.name)} said ${offer}: ${esc(numDa(offer))}. The deal is done at ${offer}.</i>`);
         act.innerHTML = ''; await doneBtn(ov, 'Videre'); return { price: offer, walked: false, misheard: true };
       }
       act.innerHTML = `<div class="chips"><button class="mtap btn" id="hAcc">Det er en aftale.</button><button class="mtap btn ghost" id="hPush">Det er for lidt!</button></div>`;
       __dev.answer = Math.random() < .5 ? '#hAcc' : '#hPush';
       const push = await new Promise(r => { $('#hAcc', act).onclick = () => r(false); $('#hPush', act).onclick = () => r(true); });
-      if (!push) { line('Kragen', daHTML('Det er en aftale.')); TTS.say('Det er en aftale.'); AUDIO.sfx('coin'); act.innerHTML = ''; await doneBtn(ov, 'Videre'); return { price: offer, walked: false }; }
-      line('Kragen', daHTML('Det er for lidt!'));
-      if (final) { line(P.name, daHTML('Så er der ingen handel.')); act.innerHTML = ''; await doneBtn(ov, 'Videre'); return { price: 0, walked: true }; }
+      if (!push) { line('Kragen', daHTML('Det er en aftale.')); TTS.say('Det er en aftale.', false, 'kragen'); AUDIO.sfx('coin'); act.innerHTML = ''; await doneBtn(ov, 'Videre'); return { price: offer, walked: false }; }
+      line('Kragen', daHTML('Det er for lidt!')); TTS.say('Det er for lidt!', false, 'kragen');
+      if (final) { line(P.name, daHTML('Så er der ingen handel.')); TTS.say('Så er der ingen handel.', false, m.buyer); act.innerHTML = ''; await doneBtn(ov, 'Videre'); return { price: 0, walked: true }; }
       act.innerHTML = '';
       const ok = await rollDice('handel', 11 + pushes * 2, 0); pushes++;
       if (ok && offer < m.cap && pushes < 3) { offer = Math.min(m.cap, offer + m.step); }
@@ -104,7 +100,7 @@ const MINI = {
     ov.querySelectorAll('.vat').forEach(b => longPress(b, b.dataset.v));
     let score = 0;
     for (const o of m.orders) {
-      $('.ticket', ov).innerHTML = `<p class="small">Ordre</p><p class="da big">${daHTML(o.want)}</p>`; TTS.say(o.want);
+      $('.ticket', ov).innerHTML = `<p class="small">Ordre</p><p class="da big">${daHTML(o.want)}</p>`; TTS.say(o.want, false, 'bodil');
       $('.dname', ov).innerHTML = ''; $('.pot i', ov).style.background = 'transparent'; $('.pot span', ov).textContent = '';
       let first = true, sel = [];
       // 1) mix
@@ -125,7 +121,7 @@ const MINI = {
       $('.dname', ov).innerHTML = `<p class="da">Det er ${daHTML(o.art)} <span class="gap">&nbsp;</span> ${daHTML(o.noun)}.</p><div class="chips">${shuffle(o.name).map(n => `<button class="mtap chip" data-ok="${n === o.ok ? 1 : 0}">${esc(n)}</button>`).join('')}</div>`;
       __dev.answer = '.dname .chip[data-ok="1"]';
       await new Promise(res => $('.dname', ov).querySelectorAll('.chip').forEach(c => c.onclick = () => {
-        if (c.dataset.ok === '1') { $('.dname .gap', ov).textContent = o.ok; $('.dname .chips', ov).remove(); $('.why', ov).textContent = o.why; AUDIO.sfx('ok'); TTS.say(`Det er ${o.art} ${o.ok} ${o.noun}.`); setTimeout(res, FAST ? 0 : 1300); }
+        if (c.dataset.ok === '1') { $('.dname .gap', ov).textContent = o.ok; $('.dname .chips', ov).remove(); $('.why', ov).textContent = o.why; AUDIO.sfx('ok'); TTS.say(`Det er ${o.art} ${o.ok} ${o.noun}.`, false, 'kragen'); setTimeout(res, FAST ? 0 : 1300); }
         else { first = false; c.disabled = true; $('.why', ov).textContent = o.why; AUDIO.sfx('wrong'); }
       }));
       if (first) score++;
@@ -151,7 +147,7 @@ const MINI = {
       const rv = $('.rv', ov);
       if (it.w) {
         const others = shuffle(have.filter(x => x !== it.w)).slice(0, 3).map(x => DICT[x]);
-        rv.innerHTML = `<p class="da big">${esc(it.w)}</p><div class="chips col">${shuffle([DICT[it.w], ...others]).map(g => `<button class="mtap chip" data-ok="${g === DICT[it.w] ? 1 : 0}">${esc(g)}</button>`).join('')}</div>`; TTS.say(it.w);
+        rv.innerHTML = `<p class="da big">${esc(it.w)}</p><div class="chips col">${shuffle([DICT[it.w], ...others]).map(g => `<button class="mtap chip" data-ok="${g === DICT[it.w] ? 1 : 0}">${esc(g)}</button>`).join('')}</div>`; TTS.say(it.w, false, 'word');
       } else rv.innerHTML = `<p class="da big">${esc(it.q)}</p><div class="chips">${shuffle(it.o).map(g => `<button class="mtap chip" data-ok="${g === it.a ? 1 : 0}">${esc(g)}</button>`).join('')}</div>`;
       __dev.answer = Math.random() < .8 ? '.rv .chip[data-ok="1"]' : '.rv .chip';
       const ok = await new Promise(res => rv.querySelectorAll('.chip').forEach(c => c.onclick = () => { rv.querySelectorAll('.chip').forEach(x => { x.disabled = true; if (x.dataset.ok === '1') x.classList.add('right'); }); if (c.dataset.ok !== '1') c.classList.add('wrong'); res(c.dataset.ok === '1'); }));

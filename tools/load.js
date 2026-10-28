@@ -2,7 +2,7 @@
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const read = p => fs.readFileSync(path.join(ROOT, p), 'utf8');
-function load(files = ['js/data.js', 'js/dict.js', 'js/story.js']) {
+function load(files = ['js/data.js', 'js/dict.js', 'js/story.js', 'js/voicemap.js']) {
   const ctx = { console, Math, JSON }; vm.createContext(ctx);
   for (const f of files) if (fs.existsSync(path.join(ROOT, f))) vm.runInContext(read(f).replace(/^(const|let) (\w+) =/gm, 'var $2 ='), ctx, { filename: f });
   return ctx;

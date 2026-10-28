@@ -60,6 +60,7 @@ async function play(srv, run) {
     }
   }
   if (!ending && !errors.length) errors.push('no ending reached');
+  const miss = await p.evaluate(() => [...new Set(__dev.voiceMiss || [])]); if (miss.length) errors.push(`lines with no voice clip: ${miss.slice(0, 8).join(' · ')}`);
   await browser.close();
   return { ending, errors, steps: n };
 }
