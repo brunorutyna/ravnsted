@@ -1,3 +1,4 @@
 tools/speech.json
 node_modules/
 *.npy
+__pycache__/
