@@ -74,7 +74,7 @@ for k, v in O.items(): J[k] = obj(v)
 TALLP = ("Recompose the reference painting as a tall vertical picture: the same subject, the same style, technique, palette and mood, "
          "the main subject large and complete in the upper two thirds, the lower third darker and calm with little detail (text will be laid over it). "
          "Absolutely no violet, purple or magenta.") + NOTEXT
-for t, src in [('lore_marsh_tall', 'lore_marsh'), ('lore_book_tall', 'skriver_5'), ('lore_crow_tall', 'lore_crow'), ('lore_doed_tall', 'lore_doed'), ('lore_hane_tall', 'lore_hane'), ('lore_lampe_tall', 'lore_lampe')]:
+for t, src in [('lore_marsh_tall', 'lore_marsh'), ('lore_book_tall', 'skriver_5'), ('lore_crow_tall', 'lore_crow'), ('lore_doed_tall', 'lore_doed'), ('lore_hane_tall', 'lore_hane'), ('lore_lampe_tall', 'lore_lampe'), ('kirke_tall', 'kirke'), ('kirke33_tall', 'kirke33')]:
     J[t] = dict(prompt=TALLP, aspect='9:16', refs=(src,))
 gen.J.update(J)  # gen.run looks names up in gen.J
 if __name__ == '__main__':

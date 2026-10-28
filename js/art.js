@@ -168,7 +168,7 @@ const ART = (() => {
   }
   function loop(now) { try { drawStage(now); drawTitle(now); } catch (e) { console.error(e); } requestAnimationFrame(loop); }
   requestAnimationFrame(loop);
-  img(innerWidth < innerHeight ? 'title_tall' : 'title_wide');
+  img(innerWidth < innerHeight ? 'title_tall' : 'title_wide'); if (innerWidth < innerHeight) { img('kirke_tall'); img('kirke33_tall'); }
   // fetch the paintings quietly, in story order, so scenes do not open on black
   setTimeout(() => { const q = ['kirke', 'loft_0', 'p_sidsel', 'skriver_1', 'p_absalon', 'torv_1', 'p_mads', 'p_hulda', 'p_gertrud', 'torv_2', 'p_foged', 'farveri_3', 'p_bodil', 'kro_3', 'kro_4', 'p_jens', 'loft_4', 'skriver_5', 'mose_5', 'mose_6', 'p_mosekonen'];
     const next = () => { const n = q.shift(); if (n) img(n, () => setTimeout(next, 150)); }; next(); next(); }, 2500);
@@ -186,7 +186,7 @@ const ART = (() => {
     preload(names) { names.forEach(n => img(n)); },
     get state() { return st; },
     timeCard(c, W, H, tf, now) {
-      c.fillStyle = INK; c.fillRect(0, 0, W, H); const im = img((typeof SES !== 'undefined' && SES.timeCard) || 'kirke'); if (im) cover(c, im, W, H, 1.02 + (now % 20000) / 400000, .5, .4);
+      c.fillStyle = INK; c.fillRect(0, 0, W, H); const base = (typeof SES !== 'undefined' && SES.timeCard) || 'kirke', im = (H > W && img(base + '_tall')) || img(base); if (im) cover(c, im, W, H, 1.01 + (now % 20000) / 800000, .5, .4);
       const i = Math.max(0, Math.min(6, Math.floor(tf))), j = Math.min(6, i + 1), t = Math.max(0, Math.min(1, tf - i));
       c.globalCompositeOperation = 'color'; c.globalAlpha = .45 * (1 - t); c.fillStyle = HOURS[i]; c.fillRect(0, 0, W, H); c.globalAlpha = .45 * t; c.fillStyle = HOURS[j]; c.fillRect(0, 0, W, H);
       c.globalCompositeOperation = 'multiply'; c.globalAlpha = Math.min(.6, Math.max(0, (tf - 3.5) * .25)); c.fillStyle = '#10142a'; c.fillRect(0, 0, W, H);
