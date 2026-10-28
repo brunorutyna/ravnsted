@@ -193,8 +193,11 @@ const ART = (() => {
       c.globalAlpha = 1; c.globalCompositeOperation = 'source-over'; vignette(c, W, H, .75);
     },
     lore(c, W, H, art) {
-      const name = { town: 'title_wide', marsh: 'lore_marsh', book: 'skriver_5', crow: 'lore_crow' }[art] || art || 'title_wide';
-      once(c, name, im => { const at = cover(c, im, W, H, 1, .5, .45); const f = performance.now(); effects(c, (FX[name] || []).filter(e => e[0] !== 'fog'), at, W, H, f, false); vignette(c, W, H, .5); });
+      // a tall screen gets the tall title painting, and wide paintings are framed on their subject
+      const name = { town: H > W ? 'title_tall' : 'title_wide', marsh: 'lore_marsh', book: 'skriver_5', crow: 'lore_crow' }[art] || art || 'title_wide';
+      const FOCUS = { lore_crow: [.31, .4], lore_marsh: [.28, .15], skriver_5: [.37, .4], lore_doed: [.55, .4], lore_hane: [.33, .3], lore_lampe: [.5, .35] };
+      const [fx, fy] = FOCUS[name] || [.5, .3];
+      once(c, name, im => { const at = cover(c, im, W, H, 1, fx, fy); const f = performance.now(); effects(c, (FX[name] || []).filter(e => e[0] !== 'fog'), at, W, H, f, false); vignette(c, W, H, .35); });
     },
     die(c, S, n, p) {
       c.clearRect(0, 0, S, S); c.save(); c.translate(S / 2, S / 2); c.rotate(p < 1 ? p * 12 : 0); const r = S * .42;

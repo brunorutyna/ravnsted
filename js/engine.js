@@ -479,7 +479,7 @@ async function lore(carry) {
   for (let i = 0; i < LORE.length && !ov.dataset.skip; i++) {
     const L = LORE[i];
     ov.innerHTML = `<canvas></canvas><div class="lore-txt"><p class="da big">${daHTML(L.da)}</p><p class="en">${esc(L.en)}</p></div><div class="brow"><button class="btn ghost" id="lSkip">Spring over</button><button class="btn" id="lNext">${i < LORE.length - 1 ? 'Videre' : 'Begynd'}</button></div>`;
-    const cv = $('canvas', ov); cv.width = Math.min(760, innerWidth) * 2; cv.height = cv.width * .55; ART.lore(cv.getContext('2d'), cv.width, cv.height, L.art);
+    const cv = $('canvas', ov), dpr = Math.min(2, devicePixelRatio || 1); cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr); ART.lore(cv.getContext('2d'), cv.width, cv.height, L.art);
     TTS.say(L.da, false, 'narrator');
     await new Promise(r => { $('#lNext', ov).onclick = r; $('#lSkip', ov).onclick = () => { ov.dataset.skip = 1; r(); }; if (FAST) r(); });
     AUDIO.sfx('page');
