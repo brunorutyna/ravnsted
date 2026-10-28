@@ -123,7 +123,8 @@ function waitTap() {
     $('#act').innerHTML = ''; $('#act').appendChild(b);
     let armed = false, done = false; const log = logEl();
     const go = () => { if (done) return; done = true; clearTimeout(t); log.removeEventListener('click', lg); b.remove(); if (r !== RUN) return rej(STALE); AUDIO.sfx('page'); res(); };
-    const lg = e => { if (armed && !e.target.closest('button') && !e.target.closest('.w')) go(); };
+    // A tap on the story text never moves on (Bruno, 2026-10-28: a tap that just missed a word skipped the line). Only empty space below the text, or Videre.
+    const lg = e => { if (armed && !e.target.closest('.entry') && !e.target.closest('button') && !e.target.closest('.w') && $('#tip').hidden) go(); };
     b.onclick = go; log.addEventListener('click', lg); const t = setTimeout(() => armed = true, 250);
     waitTap.cancel = () => { if (!done) { done = true; log.removeEventListener('click', lg); b.remove(); rej(STALE); } };
   });
