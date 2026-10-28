@@ -5,9 +5,10 @@ const ART = (() => {
   const BONE = '#e9dcc0', INK = '#15110f', RED = '#b8352a';
   /* ---------- images ---------- */
   const IMG = {}, waiting = {};
+  const ALIAS = { stue_1: 'stue_0' };  // the evening living room is the dusk painting with the dark closing in (see FX)
   function img(name, cb) {
     let im = IMG[name];
-    if (!im) { im = IMG[name] = new Image(); im.decoding = 'async'; im.onload = () => { (waiting[name] || []).forEach(f => f(im)); delete waiting[name]; }; im.onerror = () => { im.failed = 1; if (window.__dev) (__dev.imgMiss = __dev.imgMiss || []).push(name); }; im.src = `img/${name}.webp?v=${window.VERSION || ''}`; }
+    if (!im) { im = IMG[name] = new Image(); im.decoding = 'async'; im.onload = () => { (waiting[name] || []).forEach(f => f(im)); delete waiting[name]; }; im.onerror = () => { im.failed = 1; if (window.__dev) (__dev.imgMiss = __dev.imgMiss || []).push(name); }; im.src = `img/${ALIAS[name] || name}.webp?v=${window.VERSION || ''}`; }
     if (cb) { if (im.complete && im.naturalWidth) cb(im); else (waiting[name] = waiting[name] || []).push(cb); }
     return im.complete && im.naturalWidth ? im : null;
   }
@@ -21,10 +22,11 @@ const ART = (() => {
     return tintCache[key] = c;
   }
   const AMBIENT = { loft_0: '30,60,100,.32', loft_4: '120,45,25,.35', skriver_1: '50,70,85,.28', skriver_5: '70,28,12,.45', torv_1: '35,65,60,.3', torv_2: '90,80,40,.28',
-    farveri_3: '95,65,30,.22', kro_3: '80,48,28,.3', kro_4: '110,38,18,.42', mose_5: '15,45,60,.45', mose_6: '45,15,30,.5' };
+    farveri_3: '95,65,30,.22', stue_1: '30,20,10,.2', stue_3: '30,30,40,.15', loftet_1: '20,20,30,.2', marked_2: '20,30,40,.25', kro_3: '80,48,28,.3', kro_4: '110,38,18,.42', mose_5: '15,45,60,.45', mose_6: '45,15,30,.5' };
 
   /* ---------- places: a painting per hour, plus what moves in it (coordinates are fractions of the painting) ---------- */
-  const PLATES = { loft: [0, 4], skriver: [1, 5], torv: [1, 2], farveri: [3], kro: [3, 4], mose: [5, 6] };
+  const PLATES = { loft: [0, 4], skriver: [1, 5], torv: [1, 2], farveri: [3], kro: [3, 4], mose: [5, 6],
+    gade33: [0], stue: [0, 1, 3, 4], loftet: [1, 3], marked: [2] };  // 3.3 (woodcut); hours are that session's own
   const FX = { // 'dark' goes first: it darkens everything away from a light, then the lights are added on top
     loft_0: [['candle', .41, .22, .25], ['dust', .49, .37], ['fog', .12]], loft_4: [['dark', .45, .3, .3], ['candle', .41, .22, .35], ['dust', .49, .37], ['fog', .15]],
     skriver_1: [['candle', .83, .43, .5], ['dust', .5, .35]], skriver_5: [['dark', .83, .44, .6], ['candle', .83, .44, .9], ['dust', .5, .4], ['fog', .1]],
@@ -34,6 +36,12 @@ const ART = (() => {
     mose_5: [['wisps', .5, .86], ['fog', .4]], mose_6: [['wisps', .5, .86], ['fog', .6, '120,200,140']],
     title_wide: [['wisps', .5, .85], ['fog', .4], ['eyes', .4005, .27, .0105]], title_tall: [['wisps', .5, .85], ['fog', .4], ['eyes', .4505, .431, .007]],
     lore_marsh: [['wisps', .5, .6], ['fire', .55, .65, .5]],
+    // 3.3 · Dødsboet (woodcut)
+    gade33_0: [['candle', .43, .15, .25], ['fog', .22], ['crows']],
+    stue_0: [['candle', .675, .47, .45], ['dust', .5, .4]], stue_1: [['dark', .675, .47, .38], ['candle', .675, .47, .8], ['dust', .5, .4], ['fog', .08]],
+    stue_3: [['dark', .55, .46, .4], ['candle', .55, .46, 1.2], ['dust', .55, .45]], stue_4: [['candle', .665, .45, .2], ['fog', .1]],
+    loftet_1: [['dark', .43, .64, .35], ['candle', .43, .64, .8], ['dust', .5, .4]], loftet_3: [['dust', .5, .4], ['fog', .1]],
+    marked_2: [['candle', .125, .25, .3], ['candle', .875, .22, .3], ['fog', .3]], lore_lampe: [['candle', .5, .3, .5]],
   };
 
   function plateFor(place, tf) {
@@ -106,9 +114,9 @@ const ART = (() => {
   function vignette(c, W, H, a = .7) { const g = c.createRadialGradient(W / 2, H * .55, H * .35, W / 2, H * .55, Math.hypot(W, H) * .62); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(6,4,8,${a})`); c.fillStyle = g; c.fillRect(0, 0, W, H); }
 
   /* ---------- people ---------- */
-  const PERSON = { sidsel: 'p_sidsel', absalon: 'p_absalon', gertrud: 'p_gertrud', mads: 'p_mads', hulda: 'p_hulda', foged: 'p_foged', bodil: 'p_bodil', jens: 'p_jens', mosekonen: 'p_mosekonen' };
-  const SCALE = { hulda: 1.12, mosekonen: 1.35 };
-  function personImg(id) { if (id === 'sidsel' && typeof G !== 'undefined' && G && !['loft', 'loft_deal', 'skriver'].includes(G.node)) return 'p_sidsel_empty'; return PERSON[id]; }
+  const PERSON = { provst: 'p_provst', agnete: 'p_agnete', tove: 'p_tove', genfaerd: 'p_genfaerd', sidsel: 'p_sidsel', absalon: 'p_absalon', gertrud: 'p_gertrud', mads: 'p_mads', hulda: 'p_hulda', foged: 'p_foged', bodil: 'p_bodil', jens: 'p_jens', mosekonen: 'p_mosekonen' };
+  const SCALE = { hulda: 1.12, mosekonen: 1.35, genfaerd: 1.05 };
+  function personImg(id) { const ov = typeof SES !== 'undefined' && SES.people && SES.people[id]; if (ov) return ov; if (id === 'sidsel' && typeof G !== 'undefined' && G && !['loft', 'loft_deal', 'skriver'].includes(G.node)) return 'p_sidsel_empty'; return PERSON[id]; }
   function nameTag(c, x, y, s, text) {
     const fs = Math.max(15, s * .075); c.font = `${fs}px UnifrakturMaguntia, serif`; const w = c.measureText(text).width + fs * 1.4, h = fs * 1.45;
     const X = Math.max(4, Math.min(c.canvas.width - w - 4, x - w / 2)), Y = Math.max(4, y - h);
@@ -142,8 +150,9 @@ const ART = (() => {
       const breathe = 1 + Math.sin(now / 1300 + i * 2) * .004 + (st.speaker === id && talking ? Math.abs(Math.sin(now / 160)) * .006 : 0);
       const x = W * xs[i];
       c.globalAlpha = a * .55; c.fillStyle = '#000'; c.beginPath(); c.ellipse(x, by - H * .03, w * .38, H * .025, 0, 0, 7); c.fill();
-      c.globalAlpha = a; const src = tinted(name, im, at ? at[1] : '', spk >= 0 && st.speaker !== id ? 1 : 0);
+      c.globalAlpha = a * (id === 'genfaerd' ? .78 + .12 * Math.sin(now / 900) : 1); const src = tinted(name, im, at ? at[1] : '', spk >= 0 && st.speaker !== id ? 1 : 0);
       c.drawImage(src, x - w * breathe / 2, by - h * breathe, w * breathe, h * breathe);
+      if (id === 'genfaerd') { c.globalCompositeOperation = 'lighter'; [-1, 1].forEach(d => glow(c, x + d * w * .06, by - h * .86, h * .03, '230,240,220', .35 + .2 * Math.sin(now / 700 + d))); c.globalCompositeOperation = 'source-over'; }
       if (id === 'mosekonen') { c.globalCompositeOperation = 'lighter'; const p = .6 + .4 * Math.sin(now / 600); glow(c, x, by - h * .82, h * .12, '255,40,20', .25 * p); c.globalCompositeOperation = 'source-over'; }
       c.globalAlpha = 1;
       if (st.speaker === id) nameTag(c, x, by - h * 1.0 - H * .01, H, NPCS[id].name);
@@ -177,14 +186,14 @@ const ART = (() => {
     preload(names) { names.forEach(n => img(n)); },
     get state() { return st; },
     timeCard(c, W, H, tf, now) {
-      c.fillStyle = INK; c.fillRect(0, 0, W, H); const im = img('kirke'); if (im) cover(c, im, W, H, 1.02 + (now % 20000) / 400000, .5, .4);
+      c.fillStyle = INK; c.fillRect(0, 0, W, H); const im = img((typeof SES !== 'undefined' && SES.timeCard) || 'kirke'); if (im) cover(c, im, W, H, 1.02 + (now % 20000) / 400000, .5, .4);
       const i = Math.max(0, Math.min(6, Math.floor(tf))), j = Math.min(6, i + 1), t = Math.max(0, Math.min(1, tf - i));
       c.globalCompositeOperation = 'color'; c.globalAlpha = .45 * (1 - t); c.fillStyle = HOURS[i]; c.fillRect(0, 0, W, H); c.globalAlpha = .45 * t; c.fillStyle = HOURS[j]; c.fillRect(0, 0, W, H);
       c.globalCompositeOperation = 'multiply'; c.globalAlpha = Math.min(.6, Math.max(0, (tf - 3.5) * .25)); c.fillStyle = '#10142a'; c.fillRect(0, 0, W, H);
       c.globalAlpha = 1; c.globalCompositeOperation = 'source-over'; vignette(c, W, H, .75);
     },
     lore(c, W, H, art) {
-      const name = { town: 'title_wide', marsh: 'lore_marsh', book: 'skriver_5', crow: 'lore_crow' }[art] || 'title_wide';
+      const name = { town: 'title_wide', marsh: 'lore_marsh', book: 'skriver_5', crow: 'lore_crow' }[art] || art || 'title_wide';
       once(c, name, im => { const at = cover(c, im, W, H, 1, .5, .45); const f = performance.now(); effects(c, (FX[name] || []).filter(e => e[0] !== 'fog'), at, W, H, f, false); vignette(c, W, H, .5); });
     },
     die(c, S, n, p) {

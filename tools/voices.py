@@ -31,6 +31,10 @@ V = {
   'foged':    dict(f0=.88, rng=.8, fm=.96, br=.03, trem=None, speed=.92, fx='highpass=f=50,equalizer=f=150:t=q:w=1:g=3'),
   'jens':     dict(f0=1.24, rng=1.1, fm=1.05, br=.1, trem=None, speed=1.05, fx='highpass=f=100'),
   'mosekonen':dict(f0=1.15, rng=1.6, fm=1.05, br=.42, trem=(3.5, 40), speed=.84, fx='highpass=f=70,aecho=0.8:0.55:60|130|260:0.25|0.18|0.1,lowpass=f=5600', layer=.3),
+  'provst':   dict(f0=.92, rng=.9, fm=.97, br=.05, trem=None, speed=.9, fx='highpass=f=60,aecho=0.8:0.4:70:0.15'),
+  'agnete':   dict(f0=1.7, rng=1.2, fm=1.15, br=.12, trem=None, speed=1.02, fx='highpass=f=110'),
+  'tove':     dict(f0=1.4, rng=1.3, fm=1.08, br=.3, trem=(5.5, 20), speed=1.0, fx='highpass=f=120,equalizer=f=1800:t=q:w=1:g=3'),
+  'genfaerd': dict(f0=1.0, rng=.7, fm=.98, br=.45, trem=(4.5, 25), speed=.82, fx='highpass=f=90,lowpass=f=5000,aecho=0.8:0.6:110|240:0.3|0.18', layer=.15),
 }
 # Google Chirp 3 HD: natural Danish with real intonation. One voice actor per character; creatures keep a little shaping.
 # rate: speaking rate · shape: optional WORLD shaping on top (same keys as V) · fx: ffmpeg colour and room
@@ -46,6 +50,11 @@ GV = {
   'mads':     dict(voice='Fenrir', rate=1.1, fx='highpass=f=110,equalizer=f=1400:t=q:w=1.5:g=2'),
   'foged':    dict(voice='Alnilam', rate=.92, fx='highpass=f=50'),
   'jens':     dict(voice='Zubenelgenubi', rate=1.04, fx='highpass=f=80'),
+  'provst':   dict(voice='Rasalgethi', rate=.9, fx='highpass=f=55,aecho=0.8:0.4:70:0.12'),
+  'agnete':   dict(voice='Erinome', rate=1.02, fx='highpass=f=90'),
+  'tove':     dict(voice='Autonoe', rate=1.0, fx='highpass=f=100,equalizer=f=1800:t=q:w=1:g=2', shape=dict(f0=.9, rng=1.15, fm=.97, br=.22, trem=(5.5, 14))),
+  # the dead scribe: Absalon's own actor, lower and breathier, in a cold room
+  'genfaerd': dict(voice='Sadaltager', rate=.84, fx='highpass=f=80,lowpass=f=5200,aecho=0.8:0.55:110|240:0.28|0.16', shape=dict(f0=.88, rng=.8, fm=.96, br=.35, trem=(4.5, 18), layer=.12)),
   'mosekonen':dict(voice='Despina', rate=.86, fx='highpass=f=60,aecho=0.8:0.5:60|130|260:0.22|0.15|0.08,lowpass=f=6000', shape=dict(f0=.82, rng=1.3, fm=.94, br=.3, trem=(3.5, 30), layer=.25)),
 }
 ENGINE = 'google' if (os.environ.get('GOOGLE_TTS_KEY') or os.environ.get('GOOGLE_TTS_KEYFILE')) else 'piper'

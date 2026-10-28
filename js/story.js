@@ -446,3 +446,21 @@ const EPILOGUE2 = {
   tredive: G => 'Thirty kroner. Jens buys new gloves. Grey ones.',
   tavs: G => G.flags.inkBad2 ? 'The book saw no man, so there was no man. The bailiff stops asking.' : 'The bailiff stops asking. The book remembers anyway.',
 };
+
+/* ---------- this session as the engine sees it (3.3 lives in story33.js) ---------- */
+Object.assign(SESSION, {
+  num: '3.2', times: TIMES, lore: LORE, endText: ENDINGS, ending2, epilogue2: EPILOGUE2,
+  music: { title: 'title', 0: 'daggry', 1: 'torv', 2: 'torv', 3: 'eftermiddag', 4: 'skumring', 5: 'nat', 6: 'midnat', end: 'slut' },
+  // sample states for the tools (lint, speech): every flag that changes a line, both ways, and mixed
+  samples() {
+    const base = [];
+    for (const sold of ['gertrud', 'mads', 'hulda', 'kept']) for (const v of [0, 1]) base.push({ flags: { sold, price: 20, betterCut: v, inkBad: v, kept: sold === 'kept' ? 1 : 0, askedWhere: v, inspected: v, lieH: v, clueHue: v, pay2: v ? 15 : 0, truthJ: v, bribe: v, reported: v, inkBad2: v, warmG: v, lieG: v, lieGfail: v, truthG: v, warmM: v, knowsEllen: v, paidScribe: v, wary: v, caught: v }, kr: 10,
+      mini: { c1: { bad: !!v }, c2: { bad: !!v }, dress: { found: v ? 3 : 1 }, findG: { ok: !!v }, findJ: { ok: !!v }, dye: { score: v ? 3 : 1 }, saleG: { walked: !!v, price: 30 }, saleM: { walked: !!v, price: 12 } }, wear: { da: 'En rød trøje', en: 'A red sweater', pron: 'den' }, lastBuilt: null, where: '' });
+    const out = [...base];
+    for (let i = 0; i < base.length; i += 2) { out.push(Object.assign({}, base[i], { mini: base[i + 1].mini })); out.push(Object.assign({}, base[i + 1], { mini: base[i].mini })); }
+    [['sikke', 'en', 'smuk', 'kjole'], ['sikke', 'et', 'smukt', 'tørklæde'], ['sikke', 'nogle', 'smukke', 'sko']].forEach(lb => out.push(Object.assign({}, base[0], { lastBuilt: lb })));
+    ['jeg har købt den på et loppemarked', 'jeg har fået den af min mor', 'jeg har købt den i en butik', ''].forEach(w => out.push(Object.assign({}, base[0], { where: w })));
+    for (const n of Object.keys(WEAR_NOUNS)) for (const c of Object.keys(COLORS)) { const W = wearOf(n, c); out.push(Object.assign({}, base[0], { wear: { da: W.da, en: W.en, pron: W.pron, n: W.n } })); }
+    return out;
+  },
+});

@@ -21,6 +21,15 @@ const RULES = {
   'kort-svar': { name: 'Short answers', rule: 'Answer with det + the same verb, and put ikke after it.', ex: ['Det kan jeg ikke.', 'Nej, det har jeg ikke.', 'Ja, det er jeg.'] },
   'spoerg': { name: 'Question word first', rule: 'Question word, then the verb, then the subject.', ex: ['Hvem er hun?', 'Hvor er Ellen?'] },
   'have-paa': { name: 'have … på', rule: 'To wear: have + clothes + på.', ex: ['Jeg har en blå trøje på.', 'Hun har et hvidt tørklæde på.', 'Han har et par sorte handsker på.'] },
+  // 3.3 · Kan du ikke lide den hvide lampe?
+  'adj-def': { name: 'den hvide lampe', rule: 'After den, det or de the adjective always takes -e, whatever the gender. It looks like the plural form.', ex: ['den hvide lampe', 'det hvide skab', 'de hvide hylder'] },
+  'adj-def-poss': { name: 'min hvide sofa', rule: 'After a possessive (min, mit, mine, din, hans, hendes, sin, vores, deres …) or a genitive (Absalons) the adjective takes -e too.', ex: ['min grønne lænestol', 'mit ternede tæppe', 'Absalons sorte bog'] },
+  'adj-def-irr': { name: 'The irregular ones', rule: 'blå, grå, orange and lilla never take -e. -et becomes -ede. gammel and lækker lose an e: gamle, lækre. lille becomes små in the plural.', ex: ['den lille blå kommode', 'det ternede tæppe', 'det gamle bord', 'de små stole'] },
+  'adj-er': { name: 'After er: agree with the noun', rule: 'When er stands between them, the adjective agrees with the noun: no ending for en-words, -t for et-words, -e in the plural.', ex: ['Den blå kommode er stor.', 'Det grå skab er stort.', 'De gule hylder er gamle.'] },
+  'reakt': { name: 'Kan du det?!', rule: 'React with surprise by repeating the verb as a short question: Kan du det?! Er du ikke?! After synes, both synes and gør work: Synes du det?! Gør du det?!', ex: ['Jeg kan godt lide den. – Kan du det?!', 'Jeg er ikke vild med den. – Er du ikke?!', 'Jeg synes, den er grim. – Gør du det?!'] },
+  'ogsaa-heller': { name: 'også or heller ikke', rule: 'Agree with something positive with også, with something negative with heller ikke. Repeat the verb (or use gør).', ex: ['Jeg kan godt lide den. – Det kan jeg også.', 'Jeg kan ikke lide den. – Det kan jeg heller ikke.', 'Jeg synes ikke, den er pæn. – Det gør jeg heller ikke.'] },
+  'liking': { name: 'From best to worst', rule: 'kan bedst lide · er vild med · kan godt lide · kan ikke så godt lide · kan ikke lide. Say what you are tired of with er træt af.', ex: ['Jeg kan bedst lide de gule hylder.', 'Jeg er vild med de stribede puder.', 'Jeg kan ikke lide den grønne lænestol.'] },
+  'skal-nok': { name: 'skal nok: a promise', rule: 'skal nok + infinitive promises something.', ex: ['Jeg skal nok give dig den.', 'Det skal jeg nok.'] },
 };
 
 /* colour → forms (en, et, plural), wash colour for the woodcut, English */
@@ -56,7 +65,7 @@ function numDa(n) {
 }
 
 /* ---------- shared by the game and the voice generator ---------- */
-const PROPER = ['Sidsel', 'Ribe', 'Ellen', 'Kragen', 'Gertrud', 'Mads', 'Hulda', 'Jens', 'Bodil', 'Absalon', 'Herluf'];
+const PROPER = ['Sidsel', 'Ribe', 'Ellen', 'Kragen', 'Gertrud', 'Mads', 'Hulda', 'Jens', 'Bodil', 'Absalon', 'Herluf', 'Agnete', 'Tove', 'Bertel', 'Ravnsted'];
 // a built sentence as it is shown and spoken: proper nouns keep their capital, comma after a first ja / nej / jo
 function sentenceOf(words, punct) {
   const w = words.map(x => PROPER.includes(x) ? x : x.toLowerCase());
@@ -82,7 +91,23 @@ function whereAnswers(pron) {
   WEAR_GIFTS.forEach(p => { out.push(['Jeg', 'har', 'fået', pron, ...p]); out.push([pron, 'har', 'jeg', 'fået', ...p]); });
   return out;
 }
-const HAGGLE_RANGE = { gertrud: [15, 50], mads: [5, 22] };
+const HAGGLE_RANGE = { gertrud: [15, 50], mads: [5, 22], tove: [6, 40] };
+
+/* 3.3 finale: the player's own home. noun → [gender, English] */
+const FURN = {
+  sofa: ['en', 'sofa'], lænestol: ['en', 'armchair'], seng: ['en', 'bed'], reol: ['en', 'bookcase'], lampe: ['en', 'lamp'], kommode: ['en', 'chest of drawers'], stol: ['en', 'chair'],
+  bord: ['et', 'table'], skab: ['et', 'cupboard'], tæppe: ['et', 'rug'], fjernsyn: ['et', 'TV'], sengetæppe: ['et', 'bedspread'],
+  gardiner: ['pl', 'curtains'], puder: ['pl', 'cushions'], stole: ['pl', 'chairs'], hylder: ['pl', 'shelves'],
+};
+const HOME_VERB = { love: ['kan', 'bedst', 'lide'], tired: ['er', 'træt', 'af'] };
+// "I like my green sofa best": possessive (or den/det/de) + the adjective's e-form, which is the plural form
+function homeOf(n, c, verb) {
+  const g = FURN[n][0], adj = COLORS[c].f[2], poss = g === 'en' ? 'min' : g === 'et' ? 'mit' : 'mine', art = g === 'en' ? 'den' : g === 'et' ? 'det' : 'de';
+  const v = HOME_VERB[verb], en = `${verb === 'love' ? 'What I like best is' : 'I am tired of'} my ${COLORS[c].en} ${FURN[n][1]}.`;
+  const your = (g === 'en' ? 'din' : g === 'et' ? 'dit' : 'dine') + ` ${adj} ${n}`;
+  return { n, c, g, adj, poss, art, your, pron: g === 'en' ? 'den' : g === 'et' ? 'det' : 'dem', en, da: `${poss} ${adj} ${n}`,
+    answers: [['Jeg', ...v, poss, adj, n], ['Jeg', ...v, art, adj, n]], wrong: [...new Set(COLORS[c].f)].filter(x => x !== adj) };
+}
 
 const INSPECT = [
   { k: 'kant', x: .5, y: .85, da: 'Kanten er våd.', en: 'The hem is wet.' },

@@ -51,12 +51,22 @@ function prefetchVoices(lines) { const s = new Set(); lines.forEach(([who, t]) =
 
 /* ---------------- state ---------------- */
 let G = null;
-let META = Object.assign({ played: 0, endings: [], words: {}, runs: 0 }, lsGet(META_KEY, {}));
+/* Sessions, in book order. SES is the one being played. */
+const SESSIONS = [SESSION, SESSION33];
+let SES = SESSIONS[0];
+const sesById = id => SESSIONS.find(s => s.id === id) || SESSIONS[0];
+let META = Object.assign({ played: 0, endings: [], words: {}, runs: 0, s: {}, carry: null }, lsGet(META_KEY, {}));
+if (!META.s) META.s = {};
+if (!META.s.k3s2 && (META.played || META.endings.length)) META.s.k3s2 = { played: META.played, endings: META.endings.slice() }; // saves from before 3.3
+const sMeta = id => META.s[id] = META.s[id] || { played: 0, endings: [] };
 const saveMeta = () => lsSet(META_KEY, META);
 const save = () => { if (G) lsSet(KEY, G); };
-function newGame() {
-  G = { node: null, kr: 3, time: 0, sk: { snak: 1, loegn: 1, oeje: 1, handel: 1 }, use: { snak: 0, loegn: 0, oeje: 0, handel: 0 },
-    flags: {}, used: {}, mini: {}, rules: {}, words: {}, npcs: [], wear: null, stats: { built: 0, perfect: 0, rolls: 0, wins: 0, eng: 0 }, at: null };
+/* carry: the Kragen from the chapter before (money, skills, what happened), or null for a fresh one */
+function newGame(ses, carry) {
+  SES = ses || SES;
+  G = { sess: SES.id, node: null, kr: carry ? carry.kr : SES.num === '3.2' ? 3 : 5, time: 0, sk: carry ? Object.assign({}, carry.sk) : { snak: 1, loegn: 1, oeje: 1, handel: 1 },
+    use: carry ? Object.assign({}, carry.use) : { snak: 0, loegn: 0, oeje: 0, handel: 0 }, prev: carry ? { e1: carry.e1, e2: carry.e2, from: carry.from } : null,
+    flags: SES.candles ? { lys: SES.candles } : {}, used: {}, mini: {}, rules: {}, words: {}, npcs: [], wear: null, home: {}, stats: { built: 0, perfect: 0, rolls: 0, wins: 0, eng: 0 }, at: null };
 }
 const snap = () => { const c = Object.assign({}, G); delete c.at; return JSON.stringify(c); };
 
@@ -93,8 +103,9 @@ function addLog(html, cls) {
 }
 function toast(text) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = text; $('#toasts').appendChild(t); setTimeout(() => t.remove(), 2600); }
 function hud() {
-  const T = TIMES[G.time];
-  $('#hud').innerHTML = `<span class="clock">${T.name}</span><span class="kr"><b>${G.kr}</b> kr.</span><button class="hb" id="jOpen" aria-label="Journal">Bog</button>`;
+  const T = SES.times[G.time];
+  const lys = G.flags.lys !== undefined ? `<span class="lys" aria-label="Den dødes tålmodighed: ${G.flags.lys} af 5 lys">${[0, 1, 2, 3, 4].map(i => `<i class="${i < G.flags.lys ? 'on' : ''}"></i>`).join('')}</span>` : '';
+  $('#hud').innerHTML = `<span class="clock">${T.name}</span>${lys}<span class="kr"><b>${G.kr}</b> kr.</span><button class="hb" id="jOpen" aria-label="Journal">Bog</button>`;
   $('#jOpen').onclick = journal;
 }
 function kr(n, why) { if (n < 0) n = -Math.min(G.kr, -n); if (!n) return; G.kr += n; hud(); AUDIO.sfx(n >= 0 ? 'coin' : 'coinout'); addLog(`<span>${n >= 0 ? '+' : '−'} ${Math.abs(n)} kr.</span> ${why ? '· ' + daHTML(why) : ''}`, 'money'); }
@@ -132,6 +143,7 @@ async function runSteps(list) {
     else if (st.say) { sayLine(st); await waitTap(); }
     else if (st.npcs) { G.npcs = st.npcs.slice(); ART.setNpcs(G.npcs); await sleep(300); }
     else if (st.set) Object.assign(G.flags, st.set);
+    else if (st.lys !== undefined) candles(st.lys);
     else if (st.kr !== undefined) { if (st.kr) kr(st.kr, st.why); }
     else if (st.time !== undefined) await passTime(st.time);
     else if (st.mini) { G.mini[st.mini.id] = await MINI[st.mini.kind](st.mini); save(); }
@@ -141,6 +153,11 @@ async function runSteps(list) {
     alive(r);
   }
   return null;
+}
+/* the dead man's patience: five candles. Wrong words put them out, kind words light them. */
+function candles(d) {
+  if (G.flags.lys === undefined || !d) return; const before = G.flags.lys; G.flags.lys = Math.max(0, Math.min(5, before + d)); if (G.flags.lys === before) return;
+  hud(); AUDIO.sfx(d > 0 ? 'ok' : 'inkrun'); toast(d > 0 ? 'Et lys tændes.' : 'Et lys går ud.');
 }
 function sayLine(st) {
   const P = NPCS[st.say]; ART.speaker(st.say);
@@ -154,7 +171,7 @@ function sayLine(st) {
 /* ---------------- time passing ---------------- */
 async function passTime(k) {
   const from = G.time; if (k === from) return; G.time = k; hud(); save();
-  const T = TIMES[k]; AUDIO.setTime(k);
+  const T = SES.times[k]; AUDIO.setTime(k);
   const ov = document.createElement('div'); ov.className = 'tcard'; ov.innerHTML = `<canvas></canvas><div class="tc-txt"><h2>${T.name}</h2><p class="da">${daHTML('Klokken slår ' + T.clock + '.')}</p><p class="strikes"></p></div>`;
   $('#ov').appendChild(ov); TTS.say('Klokken slår ' + T.clock + '.', false, 'narrator');
   const cv = $('canvas', ov), c = cv.getContext('2d'); const fit = () => { cv.width = innerWidth; cv.height = innerHeight; }; fit();
@@ -189,7 +206,7 @@ async function enter(id, fresh) {
   try { await enterRun(id, run); } catch (e) { if (e !== STALE && run === RUN) { report(e, 'scene ' + id); showOpts(); } }
 }
 async function enterRun(id, run) {
-  const N = SESSION.nodes[id];
+  const N = SES.nodes[id];
   G.node = id; G.at = { node: id, snap: snap() }; save();
   if (N.time !== undefined && N.time > G.time) { G.time = N.time; }
   ART.setPlace(N.place, G.time); G.npcs = (N.npcs || []).slice(); ART.setNpcs(G.npcs); hud();
@@ -202,7 +219,7 @@ async function enterRun(id, run) {
 }
 function optsOf(N) { return (N.opts || []).map((o, i) => [o, i]).filter(([o, i]) => (!o.once || !G.used[G.node + ':' + i]) && (!o.if || o.if(G))); }
 function showOpts() {
-  const N = SESSION.nodes[G.node]; const act = $('#act'); act.innerHTML = '';
+  const N = SES.nodes[G.node]; const act = $('#act'); act.innerHTML = '';
   const list = optsOf(N);
   if (!list.length) { addLog('(Nothing left to do here.)', 'n'); return; }
   list.forEach(([o, i]) => {
@@ -228,6 +245,7 @@ async function chooseRun(o, i, run) {
   if (o.build) {
     const r = await builder(o.build);
     adv = r.english ? -1 : r.mistakes === 0 ? 1 : r.mistakes >= 2 ? -1 : 0;
+    if (o.engFlag) G.flags[o.engFlag] = r.english ? 1 : 0; // some choices care whether they were said in Danish
   }
   if (o.roll) ok = await rollDice(o.roll.stat, o.roll.dc, adv);
   if (ok && o.set) Object.assign(G.flags, o.set);
@@ -290,6 +308,26 @@ function ruleHTML(r) { const R = RULES[r]; return `<div class="rule"><b>${esc(R.
 
 /* The finale's free sentences about the real player */
 const SPECIAL_BUILD = {
+  /* 3.3: a thing in the player's real home. Pick it, pick its colour, then say it with the definite form. */
+  home(b) {
+    return new Promise(res => {
+      const ov = document.createElement('div'); ov.className = 'sheet-ov';
+      ov.innerHTML = `<div class="sheet"><p class="prompt">${esc(b.prompt)}</p><p class="small">First: which thing in your home?</p><div class="pool items">${Object.keys(FURN).map(n => `<button class="tile pickn" data-n="${n}">${n} <small>${esc(FURN[n][1])}</small></button>`).join('')}</div></div>`;
+      $('#ov').appendChild(ov); __dev.cur = { pickN: true };
+      ov.querySelectorAll('.pickn').forEach(t => t.onclick = () => {
+        const n = t.dataset.n; $('.sheet', ov).innerHTML = `<p class="prompt">Which colour is it?</p><div class="pool items">${Object.keys(COLORS).map(c => `<button class="tile pickc" data-c="${c}"><i class="sw" style="background:${COLORS[c].hex}"></i>${c}</button>`).join('')}</div>`;
+        __dev.cur = { pickC: true };
+        ov.querySelectorAll('.pickc').forEach(cb => cb.onclick = async () => {
+          const c = cb.dataset.c; ov.remove(); const W = homeOf(n, c, b.verb);
+          await buildSheet({ prompt: W.en, tiles: shuffle(['Jeg', ...HOME_VERB[b.verb], 'min', 'mit', 'mine', W.art, W.adj, ...W.wrong.slice(0, 2), n]), punct: '.', rules: ['adj-def-poss', 'adj-def-irr', 'liking'],
+            tip: `${n} is ${W.g === 'en' ? 'an en-word: min' : W.g === 'et' ? 'an et-word: mit' : 'plural: mine'}. After a possessive the adjective takes its e-form: ${W.adj}.`,
+            check: w => W.answers.some(a => a.length === w.length && a.every((x, k) => norm(x) === norm(w[k]))), sample: () => W.answers[0], english: W.en });
+          G.home[b.verb] = { da: W.da, your: W.your, en: `${COLORS[c].en} ${FURN[n][1]}`, pron: W.pron, n };
+          save(); res({ mistakes: 0 });
+        });
+      });
+    });
+  },
   wear(b) {
     return new Promise(res => {
       const ov = document.createElement('div'); ov.className = 'sheet-ov';
@@ -395,26 +433,47 @@ function titleMusic() {
 function title() {
   RUN++; waitTap.cancel && waitTap.cancel(); TTS.stop();
   $('#ov').innerHTML = ''; show('title'); ART.mountTitle($('#tcv'));
-  const saved = lsGet(KEY, null);
-  const eFound = META.endings.length, eAll = SESSION.endings.length + SESSION.endings2.length;
-  $('#tbtns').innerHTML = `${saved && saved.at ? '<button class="btn big" id="tCont">Fortsæt</button>' : ''}
-    <button class="btn big ${saved && saved.at ? 'ghost' : ''}" id="tNew">${saved && saved.at ? 'Begynd forfra' : 'Begynd'}</button>
+  const saved = lsGet(KEY, null), has = saved && saved.at;
+  // Begynd starts the first chapter not finished yet (or the last one)
+  const next = SESSIONS.find(x => !sMeta(x.id).played) || SESSIONS[SESSIONS.length - 1];
+  $('#tbtns').innerHTML = `${has ? '<button class="btn big" id="tCont">Fortsæt</button>' : ''}
+    <button class="btn big ${has ? 'ghost' : ''}" id="tNew">${has ? `Begynd ${next.num}` : `Begynd · ${next.num}`}</button>
     <button class="btn ghost" id="tLess">Vælg kapitel</button><button class="btn ghost" id="tSet">Indstillinger</button>`;
-  $('#tNew').onclick = () => { AUDIO.start('title'); lore(); };
-  if ($('#tCont')) $('#tCont').onclick = () => { AUDIO.start(saved.at ? JSON.parse(saved.at.snap).time : 0); resume(saved); };
+  $('#tNew').onclick = () => { AUDIO.start('title'); begin(next); };
+  if ($('#tCont')) $('#tCont').onclick = () => { const g = JSON.parse(saved.at.snap); SES = sesById(g.sess); AUDIO.start(g.time); resume(saved); };
   titleMusic();
   $('#tSet').onclick = settings;
-  $('#tLess').onclick = () => {
-    const ov = document.createElement('div'); ov.className = 'jr-ov';
-    ov.innerHTML = `<div class="jr"><div class="jr-head"><h2>Kapitler</h2><button class="btn ghost lClose">Luk</button></div>
-      <button class="lesson" id="L1"><b>3.2 · ${esc(SESSION.title)}</b><small>${esc(SESSION.book)}</small><small>${META.played ? `Spillet ${META.played} ${META.played === 1 ? 'gang' : 'gange'} · slutninger fundet: ${eFound} af ${eAll}` : 'Ikke spillet endnu'}</small></button>
-      <p class="small">3.3 · coming next.</p></div>`;
-    $('#ov').appendChild(ov); $('.lClose', ov).onclick = () => ov.remove(); $('#L1', ov).onclick = () => { ov.remove(); AUDIO.start('title'); lore(); };
-  };
+  $('#tLess').onclick = chapters;
 }
-async function lore() {
+function chapters() {
+  const ov = document.createElement('div'); ov.className = 'jr-ov';
+  ov.innerHTML = `<div class="jr"><div class="jr-head"><h2>Kapitler</h2><button class="btn ghost lClose">Luk</button></div>
+    ${SESSIONS.map(x => { const m = sMeta(x.id), all = x.endings.length + x.endings2.length;
+      return `<button class="lesson" data-id="${x.id}"><b>${x.num} · ${esc(x.title)}</b><small>${esc(x.book)}</small><small>${m.played ? `Spillet ${m.played} ${m.played === 1 ? 'gang' : 'gange'} · slutninger fundet: ${m.endings.length} af ${all}` : 'Ikke spillet endnu'}</small></button>`; }).join('')}</div>`;
+  $('#ov').appendChild(ov); $('.lClose', ov).onclick = () => ov.remove();
+  ov.querySelectorAll('.lesson').forEach(b => b.onclick = () => { ov.remove(); AUDIO.start('title'); begin(sesById(b.dataset.id)); });
+}
+/* A later chapter can go on with the Kragen from the one before, or start with a fresh one. */
+async function begin(ses) {
+  SES = ses; const i = SESSIONS.indexOf(ses), c = META.carry;
+  let carry = null;
+  if (i > 0 && c && c.from === SESSIONS[i - 1].id) {
+    carry = await new Promise(res => {
+      const ov = document.createElement('div'); ov.className = 'jr-ov';
+      ov.innerHTML = `<div class="jr"><div class="jr-head"><h2>${esc(ses.num)} · ${esc(ses.title)}</h2></div>
+        <p>Your Kragen from ${esc(SESSIONS[i - 1].num)} ended the day with <b>${c.kr} kr.</b> People in Ravnsted remember what happened.</p>
+        <div class="brow"><button class="btn ghost" id="cFresh">En ny Kragen</button><button class="btn" id="cGo">Fortsæt med min Kragen</button></div></div>`;
+      $('#ov').appendChild(ov); __dev.answer = '#cGo';
+      $('#cGo', ov).onclick = () => { ov.remove(); res(c); }; $('#cFresh', ov).onclick = () => { ov.remove(); res(null); };
+      if (FAST) { ov.remove(); res(Math.random() < .5 ? c : null); }
+    });
+  }
+  lore(carry);
+}
+async function lore(carry) {
   RUN++; waitTap.cancel && waitTap.cancel();
-  newGame(); show('game'); $('#log').innerHTML = ''; ART.mountStage($('#cv'));
+  newGame(SES, carry); if (SES.preload) ART.preload(SES.preload); show('game'); $('#log').innerHTML = ''; ART.mountStage($('#cv'));
+  const LORE = SES.lore;
   const ov = document.createElement('div'); ov.className = 'lore'; $('#ov').appendChild(ov); prefetchVoices(LORE.map(l => ['narrator', l.da]));
   AUDIO.setTime('title');
   for (let i = 0; i < LORE.length && !ov.dataset.skip; i++) {
@@ -427,23 +486,26 @@ async function lore() {
   }
   ov.classList.add('out'); await sleep(500); ov.remove();
   META.runs++; saveMeta(); AUDIO.setTime(0);
-  enter(SESSION.start);
+  enter(SES.start);
 }
 function resume(saved) {
-  G = JSON.parse(saved.at.snap); G.at = saved.at; show('game'); $('#log').innerHTML = ''; ART.mountStage($('#cv'));
+  G = JSON.parse(saved.at.snap); G.at = saved.at; SES = sesById(G.sess); G.sess = SES.id; G.home = G.home || {};
+  show('game'); $('#log').innerHTML = ''; ART.mountStage($('#cv'));
   ART.setTimeFloat(G.time); AUDIO.setTime(G.time); addLog('Where were we …', 'n'); enter(saved.at.node, true);
 }
 async function finish(e) {
-  const e2 = ending2(G); [e, e2].forEach(x => META.endings.includes(x) || META.endings.push(x)); META.played++; saveMeta();
-  addLog(esc(EPILOGUE2[e2](G)), 'n'); await waitTap();
+  const e2 = SES.ending2(G), m = sMeta(SES.id); [e, e2].forEach(x => m.endings.includes(x) || m.endings.push(x)); m.played++;
+  META.carry = { from: SES.id, kr: G.kr, sk: G.sk, use: G.use, e1: e, e2 }; saveMeta();
+  addLog(esc(SES.epilogue2[e2](G)), 'n'); await waitTap();
   AUDIO.setTime('end');
-  const eAll = SESSION.endings.length + SESSION.endings2.length;
+  const eAll = SES.endings.length + SES.endings2.length, T = SES.endText, nxt = SESSIONS[SESSIONS.indexOf(SES) + 1];
   const ov = document.createElement('div'); ov.className = 'end-ov';
-  ov.innerHTML = `<div class="end"><p class="small">Slut på dagen</p><h2>${esc(ENDINGS[e].title)}</h2><p>${esc(ENDINGS[e].en)}</p><h3>${esc(ENDINGS[e2].title)}</h3><p>${esc(ENDINGS[e2].en)}</p>
-    <p class="stat">Du har <b>${G.kr}</b> kroner. Sætninger: ${G.stats.built} (${G.stats.perfect} perfekte). Slutninger fundet: ${META.endings.length} af ${eAll}.</p>
-    <div class="brow"><button class="btn ghost" id="home">Til forsiden</button><button class="btn" id="again">Spil igen</button></div></div>`;
+  ov.innerHTML = `<div class="end"><p class="small">${SES.num === '3.2' ? 'Slut på dagen' : 'Slut på natten'}</p><h2>${esc(T[e].title)}</h2><p>${esc(T[e].en)}</p><h3>${esc(T[e2].title)}</h3><p>${esc(T[e2].en)}</p>
+    <p class="stat">Du har <b>${G.kr}</b> kroner. Sætninger: ${G.stats.built} (${G.stats.perfect} perfekte). Slutninger fundet: ${m.endings.length} af ${eAll}.</p>
+    <div class="brow"><button class="btn ghost" id="home">Til forsiden</button><button class="btn ${nxt ? 'ghost' : ''}" id="again">Spil igen</button>${nxt ? `<button class="btn" id="next">${esc(nxt.num)} · ${esc(nxt.title)}</button>` : ''}</div></div>`;
   $('#ov').appendChild(ov); lsSet(KEY, null);
-  $('#home', ov).onclick = title; $('#again', ov).onclick = () => { ov.remove(); lore(); };
+  $('#home', ov).onclick = title; $('#again', ov).onclick = () => { ov.remove(); begin(SES); };
+  if (nxt) $('#next', ov).onclick = () => { ov.remove(); begin(nxt); };
 }
 
 /* ---------------- watchdog: the player must never be left with nothing to tap ---------------- */
@@ -455,7 +517,7 @@ setInterval(() => {
   if (idle >= 4) { // about 6 s with no button, no overlay and nothing loading
     idle = 0; report(new Error('stuck at ' + G.node), 'watchdog');
     const b = document.createElement('button'); b.className = 'cont unstick'; b.textContent = 'Videre';
-    b.onclick = () => { b.remove(); const N = SESSION.nodes[G.node]; if (optsOf(N).length) showOpts(); else enter(G.node, true); };
+    b.onclick = () => { b.remove(); const N = SES.nodes[G.node]; if (optsOf(N).length) showOpts(); else enter(G.node, true); };
     act.innerHTML = ''; act.appendChild(b);
   }
 }, 1500);

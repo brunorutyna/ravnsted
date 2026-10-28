@@ -1,6 +1,6 @@
 /* RAVNSTED — sound.
-   Music: recorded loops (audio/music/*.mp3) made by tools/music: progressive, psychedelic heavy rock played by sampled
-   instruments with real amp, Leslie, phaser, delay and reverb chains. One piece per time of day, a title song, an outro.
+   Music: recorded loops (audio/music/*.mp3) made by tools/music: doom metal played by sampled instruments
+   through fuzz, organ and room chains, with a synthesized sub-bass. Each session maps its hours to pieces (SES.music). One piece per time of day, a title song, an outro.
    They crossfade when the hour changes and duck under speech.
    Voices: sprites in audio/voice (see engine.js TTS). Effects: bells, ink, coins, dice, made in the browser. */
 const MUSIC = { title: 'title', 0: 'daggry', 1: 'torv', 2: 'torv', 3: 'eftermiddag', 4: 'skumring', 5: 'nat', 6: 'midnat', end: 'slut' };
@@ -31,7 +31,7 @@ const AUDIO = (() => {
     return p;
   }
   function play(key) {
-    const name = MUSIC[key]; if (!name) return; want = name;
+    const name = (typeof SES !== 'undefined' && SES.music && SES.music[key]) || MUSIC[key]; if (!name) return; want = name;
     if (cur && cur.name === name) return; // the same piece keeps playing across the change
     track(name).then(buf => {
       if (want !== name || (cur && cur.name === name)) return;
@@ -61,7 +61,7 @@ const AUDIO = (() => {
 
   return {
     /* call from a tap: browsers allow sound only after one */
-    start(key) { if (FAST) return; init(); if (ac.state === 'suspended') ac.resume(); play(key !== undefined ? key : (want ? Object.keys(MUSIC).find(k => MUSIC[k] === want) : 'title')); },
+    start(key) { if (FAST) return; init(); if (ac.state === 'suspended') ac.resume(); play(key !== undefined ? key : (want ? Object.keys(MUSIC).find(k => MUSIC[k] === want) || 'title' : 'title')); },
     get running() { return !!ac && ac.state === 'running'; },
     setTime(k) { if (!ac || FAST) return; play(k); },
     sfx(n) { if (!ac || FAST) return; try { SFX[n] && SFX[n](); } catch (e) { } },

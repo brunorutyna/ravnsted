@@ -217,3 +217,41 @@ def slut():
     L = ['19 - - - 17 - 15 -', '17^ - - - 15 - 14 -', '14 - - 15 - 17 19 -', '16~ - - - - - - -']
     for k in range(4, 12): melody(lead, k * bar, L[(k - 4) % 4], D2_ + 12, vel=96)
     return doom_mix(gtr, lead, bas, sb, dr, [(org, organ(2), .3, -3, 1), (choir, pad(.95), -.3, -5, 1)], drive=24, room=.85, delay=1.15), 12 * bar, bpm
+
+# ------------------------------------------------------------------ DØDSBO · 3.3 evening in the dead man's house: a creaking funeral waltz (A, 3/4)
+def dodsbo():
+    bpm = 56; bar = 3
+    gtr, lead, bas, sb, dr = band(); org, box, choir = Part(P['organ_church']), Part(10), Part(P['voice_oohs'])  # 10: music box
+    A2_ = 45
+    prog = [(0, [0, 3, 7]), (-4, [0, 4, 7]), (1, [0, 4, 7]), (-5, [0, 4, 7, 10])]
+    for k in range(24):
+        t = k * bar; r, ch = prog[(k // 2) % 4]
+        for i, o in enumerate([0, 2, 1, 2, 3, 2]): box.add(t + i * .5, A2_ + 24 + r + ([*ch, 12])[o % 4], .45, 62 if k < 8 else 54)
+        org.add(t, [A2_ + r + x for x in ch[:3]], bar, 52)
+        sb.add(t, A1_ - 12 + 12 + r, bar * .96, 92)
+        if k >= 8:
+            if k % 2 == 0: gtr.add(t, PC(A1_ + r), bar * 2 * .95, 104)
+            bas.add(t, A1_ - 12 + 12 + r, bar * .95, 96)
+            kit(dr, t, ('kc' if k % 4 == 0 else 'k') + ' . r . s .', vel=96)
+            choir.add(t, [A2_ + 12 + r + x for x in ch[:3]], bar, 50)
+    L = ['12 - - - 13^ -', '12 - 10 - 8 -', '7 - - - 8 -', '5~ - - - - -']
+    for k in range(16, 24): melody(lead, k * bar, L[(k - 16) % 4] if k % 2 == 0 else '. . . . . .', A1_ + 24, vel=92)
+    return doom_mix(gtr, lead, bas, sb, dr, [(box, pad(.85), .35, -6, 1), (org, organ(1), -.3, -6, 1), (choir, pad(.95), .2, -8, 1)], drive=26, room=.85, delay=1.0), 24 * bar, bpm
+
+# ------------------------------------------------------------------ ULVETIME · 3.3 the wolf hour: a drone, a heartbeat, then the slowest riff of all (C#, minor seconds)
+def ulvetime():
+    bpm = 46; bar = 4
+    gtr, lead, bas, sb, dr = band(); choir, org, bell = Part(P['choir']), Part(P['organ_church']), Part(P['bell'])
+    for k in range(16):
+        t = k * bar
+        sb.add(t, Cs2 - 12, bar * .99, 100); org.add(t, [37, 44, 49] if k % 4 < 2 else [38, 44, 50], bar, 56)
+        if k < 4: kit(dr, t, 'f . . . f . . .', vel=90); choir.add(t, [61, 62], bar, 48)
+        else:
+            seq = ['0 - - - - - 1 -', '0 - - - 6 - - -', '0 - - - - - 1 -', '3 - 2 - 1 - 0 -'][k % 4]
+            riff(gtr, t, seq, Cs2, vel=118); low(bas, sb, t, seq, Cs2)
+            kit(dr, t, ('kc' if k % 4 == 0 else 'k') + ' . . . s . . 1', vel=114)
+            choir.add(t, [61, 64, 67] if k % 2 == 0 else [62, 65, 68], bar, 70)
+        if k % 4 == 0: bell.add(t, 49, 3.8, 70)
+    L = ['. . 12 - 13^ - - -', '12 - 10 - 9 - - -', '. . 13 - 15 - 16^ -', '13~ - - - - - - -']
+    for k in range(8, 16): melody(lead, k * bar, L[(k - 8) % 4], Cs2 + 24, vel=96)
+    return doom_mix(gtr, lead, bas, sb, dr, [(choir, pad(.96), 0, -5, 1), (org, organ(2), .4, -8, 1), (bell, pad(.95), -.5, -9, 1)], drive=30, room=.9, delay=1.3), 16 * bar, bpm

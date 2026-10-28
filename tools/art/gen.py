@@ -111,7 +111,7 @@ def run(name):
     for t in range(12):
         r = gemini(j['prompt'], out, refs=[ref_path(x) for x in j['refs']], aspect=j['aspect'])
         if isinstance(r, str): return name, 'ok'
-        if 'noimage' in r and t >= 2: return name, r
+        if 'noimage' in r and t >= 5: return name, r
         time.sleep(min(90, 15 * (t + 1)))
     return name, r
 

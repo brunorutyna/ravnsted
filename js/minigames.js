@@ -131,12 +131,13 @@ const MINI = {
     await doneBtn(ov, 'Videre'); return { score };
   },
 
-  /* ---- evening review by the candle: spaced repetition of today's words ---- */
+  /* ---- evening review by the candle: spaced repetition of today's words (each session has its own pool) ---- */
   async review(m) {
-    const POOL = ['kjole', 'tørklæde', 'handsker', 'hue', 'kappe', 'bælte', 'knapper', 'sko', 'rød', 'grøn', 'hvid', 'sort', 'grå', 'stribet', 'ternet', 'dyr', 'billig', 'kostede', 'købt', 'smuk', 'flot', 'pæn', 'våd', 'pris', 'aftale', 'penge', 'sølv', 'mose', 'blæk', 'sandt'];
+    const R = SES.review || {};
+    const POOL = R.pool || ['kjole', 'tørklæde', 'handsker', 'hue', 'kappe', 'bælte', 'knapper', 'sko', 'rød', 'grøn', 'hvid', 'sort', 'grå', 'stribet', 'ternet', 'dyr', 'billig', 'kostede', 'købt', 'smuk', 'flot', 'pæn', 'våd', 'pris', 'aftale', 'penge', 'sølv', 'mose', 'blæk', 'sandt'];
     const have = POOL.filter(w => DICT[w]);
     const words = have.sort((a, b) => ((META.words[a] || {}).s || 0) - ((META.words[b] || {}).s || 0) + (G.words[b] ? 1 : 0) - (G.words[a] ? 1 : 0)).slice(0, 3);
-    const forms = shuffle([
+    const forms = shuffle(R.forms || [
       { q: 'et ___ tørklæde', o: ['hvid', 'hvidt', 'hvide'], a: 'hvidt' }, { q: 'nogle ___ sko', o: ['sort', 'sorte'], a: 'sorte' },
       { q: 'en ___ hue', o: ['ternet', 'ternede'], a: 'ternet' }, { q: 'nogle ___ handsker', o: ['blå', 'blåt'], a: 'blå' }, { q: 'et ___ bælte', o: ['brun', 'brunt', 'brune'], a: 'brunt' },
     ]).slice(0, 2);
@@ -157,5 +158,101 @@ const MINI = {
     }
     $('.rv', ov).innerHTML = `<p class="da big">${right} / ${items.length}</p><p class="small">${right === items.length ? 'The candle gutters out on a perfect count.' : 'The words you missed will come back tomorrow.'}</p>`;
     await doneBtn(ov, 'Sov'); return { right };
+  },
+
+  /* ---- 3.3 · Loftet: the will names a thing exactly; find it among its look-alikes ---- */
+  async find(m) {
+    const ov = miniOv('find', `<p class="mh">Loftet</p><p class="small">The will names five things. Lift the right sheet.</p><div class="ask"></div><div class="cards"></div><p class="why small"></p><div class="mbrow"></div>`);
+    let wrong = 0;
+    for (const r of m.rounds) {
+      $('.ask', ov).innerHTML = `<p class="da big">${daHTML(r.da.replace(/^./, c => c.toUpperCase()))}</p><button class="tb hear">▶ Hør</button>`; $('.why', ov).textContent = '';
+      $('.hear', ov).onclick = () => TTS.say(r.da, true, 'genfaerd'); TTS.say(r.da, false, 'genfaerd');
+      $('.cards', ov).innerHTML = shuffle([r.ok, ...r.others]).map(n => `<button class="mtap card" data-ok="${n === r.ok ? 1 : 0}"><img src="img/${n}.webp?v=${window.VERSION}" alt=""></button>`).join('');
+      __dev.answer = Math.random() < .85 ? '.card[data-ok="1"]' : '.card';
+      await new Promise(res => ov.querySelectorAll('.card').forEach(c => c.onclick = () => {
+        if (c.dataset.ok === '1') { c.classList.add('right'); ov.querySelectorAll('.card').forEach(x => x.disabled = true); AUDIO.sfx('ok'); setTimeout(res, FAST ? 0 : 900); }
+        else { wrong++; c.disabled = true; c.classList.add('wrong'); AUDIO.sfx('wrong'); $('.why', ov).textContent = 'Nej. Ikke den. Something sighs under the sheets. Look at the size, the colour, the pattern.'; TTS.say('Ikke den.', true, 'genfaerd'); }
+      }));
+    }
+    $('.ask', ov).innerHTML = `<p class="da">${daHTML(wrong ? 'Nu ligger de, hvor de skal.' : 'Alle fem. Rigtigt.')}</p>`; $('.cards', ov).innerHTML = '';
+    await doneBtn(ov, 'Videre'); return { wrong };
+  },
+
+  /* ---- 3.3 · Smagsprøven: put someone's things in order of taste, then hear how wrong you were ---- */
+  async smag(m) {
+    const P = NPCS[m.who], LABELS = m.items.map(x => x.l);
+    const ov = miniOv('smag', `<p class="mh">Smagsprøven</p><p class="small">What does ${esc(P.name)} like best? Tap the things in order, from best to worst.</p><div class="slots">${LABELS.map((l, i) => `<button class="slot" data-i="${i}"><span class="lbl">${daHTML(l)}</span><span class="put"></span></button>`).join('')}</div><div class="cards five">${shuffle(m.items).map(x => `<button class="mtap card" data-k="${x.k}"><img src="img/${x.img}.webp?v=${window.VERSION}" alt=""><small>${esc(x.da)}</small></button>`).join('')}</div><div class="mbrow"></div>`);
+    ov.querySelectorAll('.card').forEach(c => longPress(c, $('small', c).textContent));
+    const order = Array(m.items.length).fill(null);
+    const render = () => { ov.querySelectorAll('.slot').forEach((sl, i) => { const x = m.items.find(y => y.k === order[i]); $('.put', sl).textContent = x ? x.da : ''; sl.classList.toggle('full', !!x); });
+      ov.querySelectorAll('.card').forEach(c => c.disabled = order.includes(c.dataset.k)); const b = $('#mSay', ov); if (b) b.disabled = order.includes(null); };
+    ov.querySelectorAll('.card').forEach(c => c.onclick = () => { const i = order.indexOf(null); if (i < 0) return; order[i] = c.dataset.k; AUDIO.sfx('tile'); render(); __dev.answer = order.includes(null) ? '.card:not([disabled])' : '#mSay'; });
+    ov.querySelectorAll('.slot').forEach(sl => sl.onclick = () => { order[+sl.dataset.i] = null; render(); __dev.answer = '.card:not([disabled])'; });
+    const say = document.createElement('button'); say.className = 'btn'; say.id = 'mSay'; say.textContent = 'Sådan'; $('.mbrow', ov).appendChild(say); render();
+    __dev.answer = '.card:not([disabled])';
+    await new Promise(r => say.onclick = r);
+    say.remove(); ov.querySelectorAll('.card, .slot').forEach(x => x.disabled = true);
+    let score = 0; const log = document.createElement('div'); log.className = 'hlog'; $('.cards', ov).replaceWith(log);
+    for (let i = 0; i < order.length; i++) {
+      const x = m.items.find(y => y.k === order[i]), ok = order[i] === m.items[i].k; if (ok) score++;
+      const line = `${ok ? 'Ja.' : 'Tror du det?!'} Jeg ${x.l} ${x.da}.`;
+      ov.querySelectorAll('.slot')[i].classList.add(ok ? 'right' : 'wrong');
+      const p = document.createElement('p'); p.innerHTML = `<b>${esc(P.name)}</b> ${daHTML(line)}`; log.appendChild(p); AUDIO.sfx(ok ? 'ok' : 'wrong');
+      await TTS.say(line, false, m.who); await sleep(500);
+    }
+    (G.rules.liking = G.rules.liking || []); m.items.forEach(x => { const sx = `Jeg ${x.l} ${x.da}.`; if (!G.rules.liking.includes(sx)) G.rules.liking.push(sx); });
+    __dev.answer = '#mDone'; await doneBtn(ov, 'Videre'); return { score };
+  },
+
+  /* ---- 3.3 · Skiftet: decide where each thing goes, then give the reason with the right ending ---- */
+  async skift(m) {
+    const PILES = { agnete: 'Agnete beholder', marked: 'Markedet', kirken: 'Kirken', baal: 'Bålet' };
+    const ov = miniOv('skift', `<p class="mh">Skiftet</p><p class="small">The will says nothing about these. Where does each one go, and why? The dead man is listening to your reasons.</p><div class="one"></div><p class="why small"></p><div class="mbrow"></div>`);
+    const piles = {}; let mistakes = 0;
+    for (const it of m.items) {
+      const one = $('.one', ov), S = it.g === 'en' ? 'Den' : it.g === 'et' ? 'Det' : 'De', pron = it.g === 'en' ? 'den' : it.g === 'et' ? 'det' : 'dem';
+      $('.why', ov).textContent = '';
+      one.innerHTML = `<div class="card big"><img src="img/${it.img}.webp?v=${window.VERSION}" alt=""></div><p class="da big">${daHTML(it.da.replace(/^./, c => c.toUpperCase()))}</p><div class="chips">${Object.keys(PILES).map(k => `<button class="mtap chip pile" data-p="${k}">${esc(PILES[k])}</button>`).join('')}</div>`;
+      __dev.answer = '.pile';
+      const pile = await new Promise(r => one.querySelectorAll('.pile').forEach(b => b.onclick = () => r(b.dataset.p)));
+      piles[it.k] = pile; AUDIO.sfx('page');
+      const forms = { agnete: ['den', 'det', 'dem'].map(p => [`Agnete er vild med ${p}.`, p === pron]),
+        marked: [['stor', 'en'], ['stort', 'et'], ['store', 'pl']].map(([a, g]) => [`${S} er alt for ${a} til huset.`, g === it.g]),
+        kirken: [['fin', 'en'], ['fint', 'et'], ['fine', 'pl']].map(([a, g]) => [`${S} er for ${a} til et loppemarked.`, g === it.g]),
+        baal: [['gammel', 'en'], ['gammelt', 'et'], ['gamle', 'pl']].map(([a, g]) => [`${S} er alt for ${a}.`, g === it.g]) }[pile];
+      one.querySelector('.chips').outerHTML = `<p class="small">${esc(PILES[pile])}. Why?</p><div class="chips col">${shuffle(forms).map(([t, ok]) => `<button class="mtap chip rs" data-ok="${ok ? 1 : 0}">${daHTML(t)}</button>`).join('')}</div>`;
+      __dev.answer = Math.random() < .8 ? '.rs[data-ok="1"]' : '.rs';
+      await new Promise(r => one.querySelectorAll('.rs').forEach(b => b.onclick = () => {
+        if (b.dataset.ok === '1') { b.classList.add('right'); one.querySelectorAll('.rs').forEach(x => x.disabled = true); const t = b.textContent; TTS.say(t, false, 'kragen'); AUDIO.sfx('ok');
+          const rk = pile === 'agnete' ? 'pron-den' : 'adj-er'; (G.rules[rk] = G.rules[rk] || []).includes(t) || G.rules[rk].push(t); setTimeout(r, FAST ? 0 : 1100); }
+        else { mistakes++; b.disabled = true; b.classList.add('blot'); AUDIO.sfx('inkrun');
+          $('.why', ov).textContent = pile === 'agnete' ? `${it.da.split(' ').pop()} is ${it.g === 'pl' ? 'plural: dem' : it.g === 'et' ? 'an et-word: det' : 'an en-word: den'}.` : `After er the adjective agrees with the noun: ${it.g === 'en' ? 'no ending (en-word)' : it.g === 'et' ? '-t (et-word)' : '-e (plural)'}.`; }
+      }));
+    }
+    $('.one', ov).innerHTML = `<p class="da">${daHTML('Så er det delt.')}</p>`;
+    await doneBtn(ov, 'Videre'); return { piles, mistakes };
+  },
+
+  /* ---- 3.3 · Genfærdet: the dead man gives his opinions. Agree (also / neither) or be surprised; never answer with the wrong verb ---- */
+  async ghost(m) {
+    const ov = miniOv('ghost', `<p class="mh">Genfærdet</p><p class="small">React to what he says. Agreeing calms him. Surprise makes him explain. A wrong reaction puts a candle out.</p><div class="hlog"></div><div class="hact"></div><div class="mbrow"></div>`);
+    const log = $('.hlog', ov), act = $('.hact', ov); let clues = 0;
+    const line = (who, html) => { const p = document.createElement('p'); p.innerHTML = `<b>${esc(who)}</b> ${html}`; log.appendChild(p); log.scrollTop = 1e6; };
+    for (const L of m.lines) {
+      line('Absalon', daHTML(L.da)); TTS.say(L.da, false, 'genfaerd');
+      act.innerHTML = `<div class="chips col">${shuffle([[L.agree, 'a'], [L.surprise, 's'], ...L.wrong.map(w => [w, 'w'])]).map(([t, k]) => `<button class="mtap chip gr" data-k="${k}">${daHTML(t)}</button>`).join('')}</div><p class="why small"></p>`;
+      __dev.answer = Math.random() < .8 ? '.gr:not([data-k="w"])' : '.gr';
+      await new Promise(res => act.querySelectorAll('.gr').forEach(b => b.onclick = async () => {
+        const k = b.dataset.k, t = b.textContent;
+        if (k === 'w') { b.disabled = true; b.classList.add('blot'); candles(-1); $('.why', act).textContent = L.why; return; }
+        act.querySelectorAll('.gr').forEach(x => x.disabled = true); line('Kragen', daHTML(t)); TTS.say(t, false, 'kragen');
+        const rk = k === 'a' ? 'ogsaa-heller' : 'reakt'; (G.rules[rk] = G.rules[rk] || []); const ex = `${L.da} – ${t}`; if (!G.rules[rk].includes(ex)) G.rules[rk].push(ex);
+        if (k === 'a') { candles(1); await sleep(900); }
+        else { await sleep(700); line('Absalon', daHTML(L.clue.da) + `<br><i class="small">${esc(L.clue.en)}</i>`); await TTS.say(L.clue.da, false, 'genfaerd'); if (L.flag) G.flags[L.flag] = 1; clues++; await sleep(600); }
+        res();
+      }));
+    }
+    act.innerHTML = '';
+    await doneBtn(ov, 'Videre'); return { candles: G.flags.lys, clues };
   },
 };

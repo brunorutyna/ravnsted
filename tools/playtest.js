@@ -3,18 +3,20 @@
    node tools/playtest.js            one run
    node tools/playtest.js --runs 5   five runs (different endings)
    node tools/playtest.js --shots out/   screenshots of each new screen (real animations, slow)
+   node tools/playtest.js --sess k3s3    play another chapter (default: the first one, 3.2)
+   node tools/playtest.js --chain        play 3.2, then go on to 3.3 from the end screen (carry-over)
    Exit code 1 on any JavaScript error, stuck screen, rejected answer or broken text. */
 const path = require('path'), fs = require('fs');
 const { serve, phone } = require('./browser');
 const args = process.argv.slice(2), flag = f => args.includes(f), val = f => args[args.indexOf(f) + 1];
-const runs = flag('--runs') ? +val('--runs') : 1, shots = flag('--shots') ? val('--shots') : null;
+const runs = flag('--runs') ? +val('--runs') : 1, shots = flag('--shots') ? val('--shots') : null, sess = flag('--sess') ? val('--sess') : 'k3s2', chain = flag('--chain');
 async function play(srv, run) {
   const { browser, page: p, errors } = await phone();
   await p.goto(srv.url + (shots ? '' : '?fast')); await p.waitForTimeout(300);
   const seen = {}; const shot = async n => { if (!shots || seen[n]) return; seen[n] = 1; await p.waitForTimeout(500); fs.mkdirSync(shots, { recursive: true }); await p.screenshot({ path: path.join(shots, `${n}.png`) }); };
   const click = async sel => { const e = await p.$(sel); if (e) { await e.evaluate(x => x.click()).catch(() => { }); return true; } return false; };
   await shot('title');
-  await click('#tNew');
+  await click('#tLess'); await p.waitForTimeout(100); await click(`.lesson[data-id="${sess}"]`);
   let n = 0, last = '', same = 0, ending = null; const path_ = [];
   while (n++ < 3000) {
     await p.waitForTimeout(shots ? 150 : 15);
@@ -24,7 +26,9 @@ async function play(srv, run) {
     const bad = await p.evaluate(() => (document.body.innerText.match(/.{0,40}(\bundefined\b|\bNaN\b|\[object Object\]).{0,20}/) || [''])[0]);
     if (bad && !errors.some(e => e.includes(bad))) errors.push(`broken text: “${bad.replace(/\s+/g, ' ')}”`);
     if (same > 300) { errors.push(`stuck at ${state}`); break; }
-    if (await p.$('.end-ov')) { ending = await p.evaluate(() => document.querySelector('.end h2').innerText + ' + ' + document.querySelector('.end h3').innerText); await shot('end'); break; }
+    if (await p.$('#cGo')) { await shot('carry'); await click(Math.random() < .5 ? '#cGo' : '#cFresh'); continue; }
+    if (await p.$('.end-ov')) { const e = await p.evaluate(() => document.querySelector('.end h2').innerText + ' + ' + document.querySelector('.end h3').innerText); await shot('end');
+      ending = ending ? ending + ' → ' + e : e; if (chain && !play.chained && await p.$('#next')) { play.chained = 1; await click('#next'); continue; } play.chained = 0; break; }
     if (await p.$('.tcard')) { await shot('time'); continue; }
     if (await p.$('.roll-ov')) { await shot('roll'); if (await click('#rGo')) { await p.waitForTimeout(shots ? 1400 : 20); continue; } await click('#rOk'); continue; }
     if (await p.$('.sheet-ov')) {

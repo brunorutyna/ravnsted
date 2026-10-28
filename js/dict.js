@@ -49,3 +49,25 @@ const DICT = {
 // numbers said while haggling: toogtyve, femogtredive …
 (function () { const one = ['', 'en', 'to', 'tre', 'fire', 'fem', 'seks', 'syv', 'otte', 'ni']; const tens = { tyve: 20, tredive: 30, fyrre: 40, halvtreds: 50 };
   for (const [t, v] of Object.entries(tens)) for (let u = 1; u <= 9; u++) DICT[one[u] + 'og' + t] = String(v + u) + ' (' + one[u] + ' og ' + t + ')'; })();
+/* 3.3 · Dødsboet */
+Object.assign(DICT, {
+  aften: 'evening', agnete: 'Agnete (a name)', agnetes: 'Agnete\'s', aldrig: 'never', arv: 'an inheritance', bedst: 'best (kan bedst lide: like best)', beholder: 'keeps (beholde)', behøver: 'need (behøve)',
+  bestemmer: 'decide (bestemme)', betalte: 'paid', bliver: 'stays; becomes (blive)', 'blåe': '(wrong form: blå never takes -e)', bog: 'a book', bord: 'a table (et bord)', brændes: 'be burned (passive)', 'brændt': 'burned',
+  byen: 'the town', 'bål': 'a bonfire, a pyre', 'bålet': 'the fire, the pyre', 'bærer': 'carries (bære)', deles: 'be shared (passive)', delt: 'shared', deres: 'their', derfor: 'that is why', derind: 'in there (movement)', derinde: 'in there (place)',
+  dit: 'your (et-word)', dyreste: 'most expensive', 'dårligt': 'badly', 'død': 'dead', 'døde': 'dead (e-form); the dead', 'dør': 'dies; a door', endelse: 'an ending (grammar)', eneste: 'only (den eneste)', engang: 'once, one day',
+  familie: 'family', familien: 'the family', fangede: 'caught', farfar: 'grandfather (father\'s father)', fin: 'fine, fancy (en-word)', fine: 'fine (e-form)', fint: 'fine (et-word)', fjernsyn: 'a TV (et fjernsyn)', flyttede: 'moved',
+  fordi: 'because', form: 'a shape', 'forstå': 'understand', forsvarede: 'defended', 'fortsæt': 'continue', 'fortæl': 'tell!', fryser: 'is cold, freezes', 'få': 'get', 'færdig': 'finished', gabestokken: 'the stocks (punishment)',
+  gamle: 'old (e-form: den gamle, de gamle)', gammel: 'old (en-word)', gammelt: 'old (et-word)', gardiner: 'curtains', gav: 'gave', give: 'give', gjorde: 'did', graven: 'the grave', grim: 'ugly', 'gråe': '(wrong form: grå never takes -e)',
+  'gået': 'gone (er gået i stykker: is broken)', 'gætter': 'guess (gætte)', 'gør': 'do, does (also: a short answer after synes)', halvdel: 'a half', hanegal: 'cockcrow, first light', hat: 'a hat', hele: 'whole (det hele: all of it)',
+  heller: 'either (heller ikke: not either)', hjemme: 'at home', hundrede: 'a hundred', huset: 'the house', hver: 'every', hylder: 'shelves', 'hørte': 'heard', inden: 'before', jord: 'land, earth', kirke: 'a church', kirken: 'the church',
+  kiste: 'a coffin; a chest', kobber: 'copper', koldt: 'cold (et-word)', kommode: 'a chest of drawers', kunne: 'could', lad: 'let', lampe: 'a lamp', lampen: 'the lamp', levende: 'living, the living', lide: 'like (kan godt lide)', linje: 'a line',
+  loft: 'an attic', loftet: 'the attic', lovet: 'promised', lygtemand: 'a will-o\'-the-wisp (a lantern man)', 'lygtemænd': 'will-o\'-the-wisps', lyse: 'give light', lyset: 'the light', lytter: 'listens', lyttet: 'listened', lyve: 'lie, tell lies', 'lånte': 'borrowed',
+  'lækker': 'lovely, delicious (en-word)', 'lækre': 'lovely (e-form)', 'lænestol': 'an armchair', mark: 'a field', markedet: 'the market', mos: 'moss', natten: 'the night', niece: 'a niece', nok: 'probably; (skal nok: a promise)', ny: 'new',
+  'når': 'when (every time, or in the future)', oppe: 'up (place)', ordene: 'the words', provsten: 'the dean, the priest', puder: 'cushions', reol: 'a bookcase', resten: 'the rest', rig: 'rich', rigtigt: 'right, correctly', runde: 'round (e-form)',
+  salg: 'sale (til salg: for sale)', samme: 'same', samvittighed: 'a conscience', sand: 'true (en-word)', sandheden: 'the truth', satte: 'put, placed', seng: 'a bed', sengetæppe: 'a bedspread', siddet: 'sat', siden: 'since; ago',
+  simpelthen: 'simply', sin: 'his/her own (en-word)', sit: 'his/her own (et-word)', skab: 'a cupboard, a cabinet', skelsten: 'a boundary stone', skrammel: 'junk', skrev: 'wrote', slet: 'at all (slet ikke)', slidt: 'worn', slukker: 'puts out (slukke)',
+  slut: 'the end, over', sofa: 'a sofa', sten: 'a stone', stenen: 'the stone', stol: 'a chair', stole: 'chairs', store: 'big (e-form)', stort: 'big (et-word)', stykker: 'pieces (gå i stykker: break)', 'stå': 'stand', sulten: 'hungry',
+  synes: 'think (an opinion)', 'sådan': 'like that, so', 'sæt': 'sit! (sætte sig)', 'søn': 'a son', tag: 'take!', tale: 'talk', ternete: '(wrong form: it is ternede)', testamente: 'a will (testament)', testamentet: 'the will', tilbage: 'back',
+  'tilhører': 'belongs to', tove: 'Tove (a name)', 'tændes': 'is lit', 'tæppe': 'a blanket, a rug', ulvetimen: 'the wolf hour (about 3 at night)', 'ulæst': 'unread', venter: 'waits', vide: 'know', vild: 'wild (vild med: crazy about)', viser: 'shows',
+  vores: 'our', 'været': 'been', sprog: 'a language', tredjedel: 'a third', andre: 'others, other', brevene: 'the letters', 'læse': 'read', 'pænt': 'pretty, nice (et-word)', sidde: 'sit', tog: 'took',
+});

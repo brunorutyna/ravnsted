@@ -9,7 +9,7 @@ import tracks
 from studio import render_part, fx, pan, mix, humanize, SR
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(ROOT, 'audio', 'music')
-NAMES = ['title', 'daggry', 'torv', 'eftermiddag', 'skumring', 'nat', 'midnat', 'slut']
+NAMES = ['title', 'daggry', 'torv', 'eftermiddag', 'skumring', 'nat', 'midnat', 'slut', 'dodsbo', 'ulvetime']
 def build(name):
     t0 = time.time(); parts, beats, bpm = getattr(tracks, name)()
     stems = []
