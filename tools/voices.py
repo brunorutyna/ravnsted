@@ -5,7 +5,8 @@ tremble, an undertone for creatures) plus a room. Clips are packed into small mp
 (audio/voice/*.mp3) with js/voicemap.js mapping each line to [file, start, duration].
 
   pip install piper-tts sherpa-onnx pyworld soundfile numpy
-  RAVNSTED_TTS=/path/to/models python3 tools/voices.py [--only who] [--jobs 2]
+  RAVNSTED_TTS=/path/to/models python3 tools/voices.py
+  GOOGLE_TTS_KEY=... python3 tools/voices.py      (natural voices: Google Chirp 3 HD, one actor per character)
 The model folder must hold vits-piper-da_DK-talesyntese-medium/ (from the sherpa-onnx tts-models release).
 Rendered clips are cached in RAVNSTED_CACHE (default ~/.cache/ravnsted-voices), so reruns only render new lines."""
 import os, sys, json, hashlib, subprocess, io, re
@@ -30,6 +31,38 @@ V = {
   'jens':     dict(f0=1.24, rng=1.1, fm=1.05, br=.1, trem=None, speed=1.05, fx='highpass=f=100'),
   'mosekonen':dict(f0=1.15, rng=1.6, fm=1.05, br=.42, trem=(3.5, 40), speed=.84, fx='highpass=f=70,aecho=0.8:0.55:60|130|260:0.25|0.18|0.1,lowpass=f=5600', layer=.3),
 }
+# Google Chirp 3 HD: natural Danish with real intonation. One voice actor per character; creatures keep a little shaping.
+# rate: speaking rate · shape: optional WORLD shaping on top (same keys as V) · fx: ffmpeg colour and room
+GV = {
+  'narrator': dict(voice='Charon', rate=.95, fx='highpass=f=60'),
+  'word':     dict(voice='Iapetus', rate=.85, fx='highpass=f=60'),
+  'kragen':   dict(voice='Algenib', rate=1.0, fx='highpass=f=70'),
+  'sidsel':   dict(voice='Achernar', rate=1.08, fx='highpass=f=90'),
+  'gertrud':  dict(voice='Pulcherrima', rate=.95, fx='highpass=f=90,equalizer=f=3200:t=q:w=1:g=2'),
+  'bodil':    dict(voice='Gacrux', rate=1.02, fx='highpass=f=80'),
+  'hulda':    dict(voice='Vindemiatrix', rate=.88, fx='highpass=f=50,aecho=0.8:0.5:90|180:0.2|0.1', shape=dict(f0=.86, rng=.7, fm=.95, br=.05, trem=None, layer=.18)),
+  'absalon':  dict(voice='Sadaltager', rate=.88, fx='highpass=f=90,vibrato=f=5:d=0.06'),
+  'mads':     dict(voice='Fenrir', rate=1.1, fx='highpass=f=110,equalizer=f=1400:t=q:w=1.5:g=2'),
+  'foged':    dict(voice='Alnilam', rate=.92, fx='highpass=f=50'),
+  'jens':     dict(voice='Zubenelgenubi', rate=1.04, fx='highpass=f=80'),
+  'mosekonen':dict(voice='Despina', rate=.86, fx='highpass=f=60,aecho=0.8:0.5:60|130|260:0.22|0.15|0.08,lowpass=f=6000', shape=dict(f0=.82, rng=1.3, fm=.94, br=.3, trem=(3.5, 30), layer=.25)),
+}
+ENGINE = 'google' if os.environ.get('GOOGLE_TTS_KEY') else 'piper'
+def google(text, who):
+    import urllib.request, base64
+    g = GV[who]
+    body = json.dumps({'input': {'text': text}, 'voice': {'languageCode': 'da-DK', 'name': f"da-DK-Chirp3-HD-{g['voice']}"},
+                       'audioConfig': {'audioEncoding': 'LINEAR16', 'sampleRateHertz': 24000, 'speakingRate': g['rate']}}).encode()
+    req = urllib.request.Request('https://texttospeech.googleapis.com/v1/text:synthesize?key=' + os.environ['GOOGLE_TTS_KEY'], data=body, headers={'Content-Type': 'application/json'})
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r: wav = base64.b64decode(json.loads(r.read())['audioContent'])
+            break
+        except Exception as e:
+            if attempt == 3: raise
+            import time; time.sleep(2 * (attempt + 1))
+    a, sr = sf.read(io.BytesIO(wav), dtype='float64'); return a, sr
+
 _pv = None
 def piper(text, speed):
     global _pv
@@ -61,14 +94,21 @@ def ff(y, sr, fx):
     buf = io.BytesIO(); sf.write(buf, y.astype(np.float32), sr, format='WAV'); buf.seek(0)
     r = subprocess.run(['ffmpeg', '-loglevel', 'error', '-f', 'wav', '-i', 'pipe:0', '-af', f"{fx},adelay=60|60,apad=pad_dur=0.25,loudnorm=I=-17:TP=-1.5:LRA=11", '-ac', '1', '-ar', str(SR), '-f', 'f32le', 'pipe:1'], input=buf.read(), capture_output=True, check=True)
     return np.frombuffer(r.stdout, dtype=np.float32)
-def hid(item): return hashlib.sha1((json.dumps(V[item['who']], sort_keys=True) + '|' + item['text']).encode()).hexdigest()[:16]
+def cfg(who): return dict(engine='google', **GV[who]) if ENGINE == 'google' else V[who]
+def hid(item): return hashlib.sha1((json.dumps(cfg(item['who']), sort_keys=True) + '|' + item['text']).encode()).hexdigest()[:16]
 def render(item):
     p = f"{CACHE}/{item['who']}/{hid(item)}.npy"
     if os.path.exists(p): return np.load(p)
-    v = V[item['who']]; x, sr = piper(item['text'], v['speed'])
-    y = x if v.get('raw') else shape(x, sr, v, int(hid(item)[:8], 16))
+    who = item['who']
+    if ENGINE == 'google':
+        g = GV[who]; x, sr = google(item['text'], who)
+        y = shape(x, sr, dict(speed=1, **g['shape']), int(hid(item)[:8], 16)) if g.get('shape') else x
+        fxc = g['fx']
+    else:
+        v = V[who]; x, sr = piper(item['text'], v['speed'])
+        y = x if v.get('raw') else shape(x, sr, v, int(hid(item)[:8], 16)); fxc = v['fx']
     y = y / (np.max(np.abs(y)) + 1e-9) * .9
-    z = ff(y, sr, v['fx']); os.makedirs(os.path.dirname(p), exist_ok=True); np.save(p, z); return z
+    z = ff(y, sr, fxc); os.makedirs(os.path.dirname(p), exist_ok=True); np.save(p, z); return z
 def pack(items, chunk_sec=40):
     """Group clips per voice into ~40 s sprites, encode each once, and map every line to [file, start, dur]."""
     out = f'{ROOT}/audio/voice'; os.makedirs(out, exist_ok=True)
@@ -104,5 +144,12 @@ if __name__ == '__main__':
             render(it)
             if j % 25 == 0: print(f'[{i}] {j}/{len(todo)}', flush=True)
         sys.exit(0)
+    if ENGINE == 'google':  # network-bound: render with a few requests in flight, then pack
+        from concurrent.futures import ThreadPoolExecutor
+        todo = [it for it in items if not os.path.exists(f"{CACHE}/{it['who']}/{hid(it)}.npy")]
+        print(f'Google Chirp 3 HD: {len(todo)} lines to render', flush=True)
+        with ThreadPoolExecutor(6) as ex:
+            for j, _ in enumerate(ex.map(render, todo)):
+                if j % 50 == 0: print(f'  {j}/{len(todo)}', flush=True)
     vm = pack(items); size = sum(os.path.getsize(f'{ROOT}/audio/voice/{f}') for f in os.listdir(f'{ROOT}/audio/voice'))
     print(f'{len(vm)} clips in {len(os.listdir(ROOT + "/audio/voice"))} sprites, {size / 1e6:.1f} MB')
