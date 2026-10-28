@@ -4,7 +4,7 @@
 
 A dark story game for learning Danish, played in the browser (phone first). One day in Ravnsted, a wet medieval town between the marsh and the hill, told scene by scene from dawn to midnight. You are Kragen, an opportunist who takes whatever contract pays a few kroner. The townsfolk, and the things that are not quite townsfolk, speak Danish.
 
-**Play:** https://brunorutyna.github.io/ravnsted/ (Android Chrome. Danish speech uses the phone's own voice: Settings → Text-to-speech → install Danish if it is missing.)
+**Play:** https://brunorutyna.github.io/ravnsted/ (Android Chrome. The voices are part of the game; nothing to install.)
 
 ## The world
 
@@ -19,6 +19,7 @@ Fantasy and everyday misery are the same thing here. The hill folk come down to 
 - **Mini-games:** the scribe's binding book, finding a person by their clothes, haggling with prices said in Danish, mixing dyes and naming the colour, looking closely at things, and an evening review by the candle.
 - **Tap any Danish word** for its meaning (press and hold inside buttons).
 - **Art: Træsnit.** Woodcut: black ink cut into bone paper, one dried red, and hand-coloured washes on clothes, as on old broadsheets. All drawn on canvas.
+- **Voices:** every character speaks with a voice of their own, recorded for the game from a Danish neural voice and reshaped per character: the nervous miller's wife, the old scribe with a tremble, the bailiff's deep voice, the hill woman's undertone, the thing in the marsh. No phone voice needed. Tap any word to hear it.
 - **Sound** generated in the browser: progressive, psychedelic heavy rock. Fuzz guitar in odd meters, a phased organ, a delay-soaked lead and a full kit, with a piece for each time of day, plus church bells, ink and coins.
 
 ## Chapters (spoiler-free)
