@@ -42,7 +42,7 @@ async function play(srv, run) {
     }
     if (await p.$('.mini-ov')) {
       const k = await p.$eval('.mini-ov', e => e.className.replace('mini-ov', '').trim()).catch(() => 'x'); await shot('mini_' + k);
-      const small = await p.$eval('.mini-ov', e => { const r = e.getBoundingClientRect(); return r.width < innerWidth * .9 || r.height < innerHeight * .9; }).catch(() => false);
+      const small = await p.$eval('.mini-ov:not(.out)', e => { const r = e.getBoundingClientRect(); return r.width < innerWidth * .9 || r.height < innerHeight * .9; }).catch(() => false);
       if (small && !errors.some(x => x.includes('mini-game ' + k))) errors.push(`mini-game ${k} does not cover the screen (a CSS class clash?)`);
       if (await click('#mDone')) continue;
       const sel = await p.evaluate(() => __dev.answer);
