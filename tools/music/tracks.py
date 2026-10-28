@@ -1,4 +1,6 @@
-"""Ravnsted's soundtrack: progressive, psychedelic heavy rock. One piece per time of day, a title song and an outro.
+"""Ravnsted's soundtrack: doom metal (Bruno, 2026-10-28: "less stoner and more doom metal, with more basses").
+Slow, downtuned fuzz walls, a bass guitar doubled by a synthesized sub, big roomy drums, church organ and choir.
+One piece per time of day, a title song and an outro.
 Each function returns (parts, beats, bpm). Parts are (Part, effects chain, pan, gain dB, takes).
 Notes: E2 = 40 (low E string), A2 = 45, D3 = 50."""
 from studio import *
@@ -56,161 +58,162 @@ def melody(part, t0, seq, root, step=.5, vel=100):
 def stack(t0, chords, dur, part, vel=80):
     for k, c in enumerate(chords): part.add(t0 + k * dur, c, dur * .98, vel)
 
-# ------------------------------------------------------------------ TITLE: "Ravnsted"
+D2_, C2_, B1_, A1_, Cs2 = 38, 36, 35, 33, 37
+
+def low(bas, sb, t, seq, root, step=.5, vel=104):
+    """bass guitar an octave under the guitar, doubled by the sub (which skips the palm-muted ghost notes)"""
+    bassline(bas, t, seq.replace('m', ''), root - 12, step, vel)
+    bassline(sb, t, ' '.join('.' if x.startswith('m') else x for x in seq.split()), root - 12, step, vel)
+
+def band(rhythm_takes=2, drive=26):
+    return Part(P['dist']), Part(P['dist']), Part(P['bass_pick']), Part(sub=True), Part(0, drums=True)
+
+def doom_mix(gtr, lead, bas, sb, dr, extra=(), drive=26, room=.7, delay=.6):
+    return [(gtr, guitar_doom(drive), -.8, 3, 2), (lead, doom_lead(delay), .25, -4, 1), (bas, bass(16), 0, 0, 1), (sb, sub(), 0, -3, 1),
+            (dr, doom_drums(room), 0, 0, 1), *extra]
+
+# ------------------------------------------------------------------ TITLE: "Ravnsted" — a funeral march in D
 def title():
-    bpm = 92; bar = 4
-    org, choir, gtr, lead, bas, dr, bell = Part(P['organ_church']), Part(P['choir']), Part(P['dist']), Part(P['dist']), Part(P['bass_pick']), Part(0, drums=True), Part(P['bell'])
-    # A · 4 bars: the town at night. Church organ, choir, a bell, a heartbeat on the floor tom
-    em, F, D, B7 = [52, 55, 59, 64], [53, 57, 60, 65], [50, 54, 57, 62], [47, 51, 54, 57]
-    stack(0, [em, F, em, D], bar, org, 72); stack(0, [em, F, em, B7], bar, choir, 70)
-    for b in range(4): bell.add(b * bar, 76, 3, 70); kit(dr, b * bar, 'f . . . . . f f', vel=82)
-    bassline(bas, 0, '0 - - - - - - - 1 - - - - - - - 0 - - - - - - - -2 - - - -1 - - -', E1, vel=88)
+    bpm = 60; bar = 4
+    gtr, lead, bas, sb, dr = band(); org, choir, bell = Part(P['organ_church']), Part(P['choir']), Part(P['bell'])
+    # A · 4 bars: the town at night. Organ, choir, a bell, the floor tom like a heart, the sub breathing under it
+    dm, Bb, Gm, A7 = [50, 53, 57, 62], [46, 50, 53, 58], [43, 50, 55, 58], [45, 49, 52, 55]
+    stack(0, [dm, Bb, Gm, A7], bar, org, 74); stack(0, [[62, 65, 69], [58, 62, 65], [55, 58, 62], [57, 61, 64]], bar, choir, 66)
+    for b, r in enumerate([0, -4, -7, -5]): bell.add(b * bar, 74, 3.5, 66); kit(dr, b * bar, 'f . . . f . f .', vel=84); sb.add(b * bar, D2_ - 12 + r, bar * .98, 96)
     # B · 8 bars: the riff
-    R1 = '0 . m0 3 2 . 0 . 6 5 . 3 . 1 0 .'          # E . . G F# . E . | Bb A . G . F E .
-    R2 = '0 . m0 3 2 . 0 . 7 - 6 - 5 3 1 .'
+    R = ['0 - - - - - 1 -', '0 - - - -2 - -4 -', '0 - - - - - 1 -', '3 - 1 - 0 - -1 -']
     for k in range(8):
-        t = 16 + k * bar; seq = R1 if k % 2 == 0 else R2
-        riff(gtr, t, seq, E2); bassline(bas, t, seq.replace('m', ''), E1, vel=100)
-        kit(dr, t, ('kc' if k % 4 == 0 else 'kr') + ' r sr r kr kr sr r', step=.5)
-        if k >= 4: stack(t, [[52, 59, 64] if k % 2 == 0 else [53, 57, 62]], bar, org, 64)
-    # C · 8 bars: the riff with a lead on top
-    L = ['12 - - 13^ 12 - 10 - 7 - - 8 7 - 5 -', '7 - 10 - 12^ - - - 15 - 13 - 12 - 10 -',
-         '12 - - 13^ 12 - 10 - 7 - 8 - 10 - 11^ -', '12~ - - - - - - - . . 19 - 17 - 15 -',
-         '16^ - 15 - 13 - 12 - 11 - 12 - 13 - - -', '12 - 10 - 8 - 7 - 8 - 7 - 5 - 4 -',
-         '7 - 8 - 10 - 12 - 13 - 15 - 16^ - 15 -', '12~ - - - - - - - - - - - . . . .']
+        t = 16 + k * bar; seq = R[k % 4]
+        riff(gtr, t, seq, D2_, vel=112); low(bas, sb, t, seq, D2_)
+        kit(dr, t, ('kc' if k % 4 == 0 else 'kr') + ' r r r sr r kr r', vel=108)
+        if k >= 4: org.add(t, [50, 57, 62] if k % 2 == 0 else [51, 58, 63], bar, 60)
+    # C · 8 bars: the riff, and a lead that mourns over it
+    L = ['12 - - - - - 13^ -', '12 - 10 - 8 - 7 -', '12 - - - 15 - 13 -', '12~ - - - - - - -',
+         '17^ - - - 15 - 13 -', '12 - 13 - 15 - 17 -', '19^ - - - 17 - 15 -', '14~ - - - - - - -']
     for k in range(8):
-        t = 48 + k * bar; seq = R1 if k % 2 == 0 else R2
-        riff(gtr, t, seq, E2); bassline(bas, t, seq.replace('m', ''), E1, vel=100)
-        kit(dr, t, ('kc' if k % 4 == 0 else 'kr') + ' r sr r kr kr sr r', step=.5)
-        melody(lead, t, L[k], E2 + 24, vel=104)
-        stack(t, [[52, 59, 64] if k % 2 == 0 else [53, 57, 60]], bar, org, 58)
-    # D · 4 bars: half-time, everything rings, then the organ alone leads back to the town
-    for k, (r, ch) in enumerate([(0, em), (-4, [48, 52, 55, 60]), (-7, [45, 48, 52, 57]), (-5, B7)]):
-        t = 80 + k * bar; gtr.add(t, PC(E2 + r), bar * .95, 112); bas.add(t, E1 + r, bar * .95, 104); choir.add(t, ch, bar, 76)
-        kit(dr, t, 'kc . . . s . . . k . k . s . 1 2' if k < 3 else 'kc . . . s . . . 1 1 2 2 3 3 f f', step=.25 * 2)
-    return [(gtr, guitar_rhythm(), -.75, 3, 2), (lead, guitar_lead(.49), .2, -3, 1), (org, organ(4), .35, -5, 1), (choir, pad(.92), -.3, -7, 1),
-            (bas, bass(), 0, -2, 1), (dr, drums(), 0, -1, 1), (bell, pad(.95), .5, -8, 1)], 96, bpm
+        t = 48 + k * bar; seq = R[k % 4]
+        riff(gtr, t, seq, D2_, vel=112); low(bas, sb, t, seq, D2_)
+        kit(dr, t, ('kc' if k % 4 == 0 else 'kr') + ' r sr r kr kr sr r', vel=110)
+        melody(lead, t, L[k], D2_ + 24, vel=100); choir.add(t, [62, 65, 69] if k % 2 == 0 else [63, 67, 70], bar, 58)
+    # D · 4 bars: everything rings, then the organ leads back to the town
+    for k, (r, ch) in enumerate([(0, dm), (-4, Bb), (-7, Gm), (-5, A7)]):
+        t = 80 + k * bar; gtr.add(t, PC(D2_ + r), bar * .95, 116); bas.add(t, D2_ - 12 + r, bar * .95, 108); sb.add(t, D2_ - 12 + r, bar * .95, 110)
+        choir.add(t, [x + 12 for x in ch[:3]], bar, 78); org.add(t, ch, bar, 70)
+        kit(dr, t, 'kc . . . s . . .' if k < 3 else 'kc . s . 1 2 3 f', vel=114)
+    return doom_mix(gtr, lead, bas, sb, dr, [(org, organ(3), .35, -5, 1), (choir, pad(.94), -.3, -6, 1), (bell, pad(.95), .5, -9, 1)], delay=.75), 96, bpm
 
-# ------------------------------------------------------------------ DAGGRY · dawn: a cold, slow psych-folk morning (6/8, D dorian)
+# ------------------------------------------------------------------ DAGGRY · dawn: a cold dirge in 3/4 (B minor), clean picking under slow fuzz swells
 def daggry():
-    bpm = 168; bar = 6  # the beat here is an eighth note
-    g, fl, st, org, bas, dr = Part(P['clean']), Part(P['flute']), Part(P['slow_strings']), Part(P['organ_perc']), Part(P['bass_finger']), Part(0, drums=True)
-    D3 = 50
-    chords = [[0, 7, 14, 15, 19, 26], [-7, 2, 11, 14, 19, 23], [0, 7, 14, 15, 19, 26], [-5, 2, 10, 12, 19, 22],
-              [-4, 3, 9, 14, 17, 21], [-2, 5, 10, 14, 17, 22], [0, 7, 12, 15, 19, 24], [-5, 2, 7, 11, 14, 19]]
-    roots = [0, -7, 0, -5, -4, -2, 0, -5]
-    pads = [[50, 57, 60, 65], [50, 55, 59, 62], [50, 57, 60, 65], [45, 52, 55, 60], [46, 53, 57, 62], [48, 52, 55, 60], [50, 53, 57, 62], [45, 52, 55, 61]]
-    tune = ['. . . 14 - 15 17 - - - 15 14', '12 - - - - - . . . . . .', '. . . 14 - 15 17 - 19 - 21 -', '19 - - 17 - 15 14 - - - - -',
-            '15 - - 14 - 12 10 - - 12 - -', '14 - - 12 - 10 9 - - - - -', '7 - 9 10 - 12 14 - - 15 - 17', '14 - - - - - . . . . . .']
-    for k in range(24):
-        t = k * bar; c = chords[k % 8]
-        for i, o in enumerate([0, 1, 2, 3, 4, 2]): g.add(t + i, D3 + c[o], 2.6, 74 if i else 84)
-        bas.add(t, D2 + roots[k % 8], 2.8, 86); bas.add(t + 3, D2 + roots[k % 8] + (7 if k % 2 else 12), 2.8, 76)
-        if k >= 4: st.add(t, pads[k % 8], bar * .98, 52 if k < 8 else 62)
-        if 8 <= k < 24 and k % 2 == 0: melody(fl, t, tune[((k - 8) // 2) % 8], D3 + 12, step=1, vel=82)
-        if k >= 4: kit(dr, t, ('kr' if k % 8 == 4 else 'k') + ' r r xr r r', step=1, vel=64 if k < 8 else 76)
-        if k >= 16: org.add(t, [D3 + roots[k % 8] % 12 + 12, D3 + roots[k % 8] % 12 + 19], bar * .95, 48)
-    return [(g, clean(), -.35, 0, 1), (fl, pad(.75), .35, -2, 1), (st, pad(.95), 0, -8, 1), (org, organ(2), .5, -9, 1), (bas, bass(4), 0, -3, 1), (dr, drums(), 0, -5, 1)], 24 * bar, bpm
-
-# ------------------------------------------------------------------ TORV · morning to noon: the market, a 7/8 riff (A dorian)
-def torv():
-    bpm = 144; bar = 3.5
-    gtr, lead, org, bas, dr = Part(P['dist']), Part(P['dist']), Part(P['organ_rock']), Part(P['bass_pick']), Part(0, drums=True)
-    R1, R2 = '0 . 3 m0 5 3 7', '0 . 3 m0 10 8 7'
-    A1 = 33
-    for k in range(32):
-        t = k * bar; seq = R1 if k % 4 != 3 else R2
-        riff(gtr, t, seq, A2); bassline(bas, t, seq.replace('m', ''), A1)
-        kit(dr, t, ('kc' if k % 8 == 0 else 'k') + ' h sh h k sh ' + ('o' if k % 4 == 3 else 'h'), vel=104)
-        if 8 <= k < 32: [org.add(t + o, [57, 60, 64, 67] if k % 4 != 3 else [55, 59, 62, 65], .35, 82) for o in (1, 2.5)]
-    L = ['12 - 15 - 17^ - -', '19 - 17 15 - 12 -', '15 - 17 - 19 - 22^', '24 - - - - - -',
-         '22 21 19 - 17 - 15', '17 - 15 12 - 10 -', '12 - 15 17 19 22 24^', '24~ - - - - - -']
-    for k in range(16, 32): melody(lead, k * bar, L[(k - 16) % 8], A2 + 12, vel=104)
-    return [(gtr, guitar_rhythm(), -.75, 2, 2), (lead, guitar_lead(.31), .25, -3, 1), (org, organ(10), .4, -5, 1), (bas, bass(), 0, -2, 1), (dr, drums(), 0, 0, 1)], 32 * bar, bpm
-
-# ------------------------------------------------------------------ EFTERMIDDAG · afternoon: a 5/4 groove with a wah lead (E dorian)
-def eftermiddag():
-    bpm = 116; bar = 5
-    gtr, lead, org, bas, dr = Part(P['dist']), Part(P['dist']), Part(P['organ_rock']), Part(P['bass_finger']), Part(0, drums=True)
-    R1, R2 = '0 . m0 3 . 5 m0 7 5 3', '0 . m0 3 . 5 m0 10 9 7'
+    bpm = 66; bar = 3
+    gtr, lead, bas, sb, dr = band(); cl, choir, org = Part(P['clean']), Part(P['voice_oohs']), Part(P['organ_church'])
+    B2 = 47
+    prog = [(0, [0, 3, 7]), (-2, [0, 4, 7]), (-4, [0, 4, 7]), (-5, [0, 4, 7, 10])]
     for k in range(20):
-        t = k * bar
-        if k < 16:
-            seq = R1 if k % 2 == 0 else R2; riff(gtr, t, seq, E2); bassline(bas, t, seq.replace('m', ''), E1)
-            kit(dr, t, ('kc' if k % 4 == 0 else 'k') + ' h s h k k s h kh o', vel=100)
-            org.add(t, [52, 55, 59, 61] if k % 2 == 0 else [50, 54, 57, 62], bar * .96, 66)
-        else:  # half-time break before the loop starts again
-            r = [0, 3, 5, 7][k - 16]; gtr.add(t, PC(E2 + r), bar * .95, 110); bas.add(t, E1 + r, bar * .95, 100); org.add(t, [52 + r, 59 + r, 64 + r], bar, 70)
-            kit(dr, t, 'kc . . . s . . . k . . . s . . . 1 2 3 f', step=.25)
-    L = ['12 - 14 15 - 17 - 19^ - -', '17 15 14 - 12 - 10 - 12 -', '19 - 22^ - 21 19 - 17 - -', '19~ - - - - - - . . .',
-         '24^ - 22 - 21 - 19 - 17 -', '15 - 17 - 19 - 21 22 24 -', '26^ - 24 - 22 - 21 19 - 17', '19~ - - - - - - - - -']
-    for k in range(8, 16): melody(lead, k * bar, L[k - 8], E2 + 12, vel=102)
-    return [(gtr, guitar_rhythm(), -.7, 2, 2), (lead, [pb.Phaser(rate_hz=2.2, depth=.9, centre_frequency_hz=1100, feedback=.6, mix=.7)] + guitar_lead(.39, phase=False), .3, -2, 1),
-            (org, organ(8), .45, -6, 1), (bas, bass(), 0, -2, 1), (dr, drums(), 0, 0, 1)], 20 * bar, bpm
+        t = k * bar; r, ch = prog[(k // 2) % 4]
+        for i, o in enumerate([0, 1, 2, 3, 2, 1]): cl.add(t + i * .5, B2 + r + ([*ch, 12])[o % 4] + 12, 1.2, 72)
+        if k >= 4:
+            if k % 2 == 0: gtr.add(t, PC(B1_ + r), bar * 2 * .95, 100)
+            bas.add(t, B1_ - 12 + r, bar * .95, 96); sb.add(t, B1_ - 12 + r, bar * .95, 100)
+            kit(dr, t, ('kc' if k % 4 == 0 else 'k') + ' . r . s .', vel=96)
+            choir.add(t, [B2 + 12 + r + x for x in ch[:3]], bar, 58)
+        else: sb.add(t, B1_ - 12 + r, bar * .95, 70)
+        if k >= 12: org.add(t, [B2 + r, B2 + r + 7], bar, 50)
+    L = ['12 - - - 14 15', '14 - 12 - 10 -', '12 - - - 9 -', '7~ - - - - -']
+    for k in range(12, 20): melody(lead, k * bar, L[(k - 12) % 4] if k % 2 == 0 else '. . . . . .', B2 + 12, vel=94)
+    return doom_mix(gtr, lead, bas, sb, dr, [(cl, clean(), -.35, -1, 1), (choir, pad(.95), .3, -7, 1), (org, organ(2), .4, -10, 1)], drive=24, delay=.9), 20 * bar, bpm
 
-# ------------------------------------------------------------------ SKUMRING · dusk: doom, a tritone that will not resolve
+# ------------------------------------------------------------------ TORV · the market: a lumbering doom groove (C)
+def torv():
+    bpm = 76; bar = 4
+    gtr, lead, bas, sb, dr = band(); org = Part(P['organ_rock'])
+    R = ['0 - m0 m0 3 - 5 -', '6 - 5 - 3 - 0 -', '0 - m0 m0 3 - 5 -', '10 - 8 - 7 - 6 -']
+    for k in range(24):
+        t = k * bar; seq = R[k % 4]
+        riff(gtr, t, seq, C2_, vel=112); low(bas, sb, t, seq, C2_)
+        kit(dr, t, ('kc' if k % 8 == 0 else 'k') + ' h sh h k k sh ' + ('o' if k % 4 == 3 else 'h'), vel=106)
+        if k >= 8: org.add(t, [48, 55, 60, 63] if k % 4 < 2 else [54, 58, 61], bar, 62)
+    L = ['12 - - 15 - 17 - -', '18^ - 17 - 15 - 12 -', '15 - 17 - 19 - 20^ -', '19~ - - - - - - -',
+         '24 - 22 - 20 - 19 -', '18 - 17 - 15 - 12 -', '15 - - 17 - 18 - -', '12~ - - - - - - -']
+    for k in range(12, 20): melody(lead, k * bar, L[k - 12], C2_ + 24, vel=100)
+    return doom_mix(gtr, lead, bas, sb, dr, [(org, organ(10), .45, -7, 1)], drive=24, room=.5, delay=.39), 24 * bar, bpm
+
+# ------------------------------------------------------------------ EFTERMIDDAG · afternoon: a crushing doom waltz (B)
+def eftermiddag():
+    bpm = 72; bar = 3
+    gtr, lead, bas, sb, dr = band(); org = Part(P['organ_rock'])
+    R = ['0 - - 3 - 1', '0 - - -2 - -1', '0 - - 3 - 5', '6 - 5 - 3 -']
+    for k in range(24):
+        t = k * bar
+        if k < 20:
+            seq = R[k % 4]; riff(gtr, t, seq, B1_, vel=112); low(bas, sb, t, seq, B1_)
+            kit(dr, t, ('kc' if k % 4 == 0 else 'k') + ' h s h k h', vel=104)
+            if k >= 4: org.add(t, [47, 54, 59] if k % 4 < 2 else [50, 53, 59], bar, 60)
+        else:  # three bars that stop the world, then the loop
+            r = [0, -2, -5, -6][k - 20]; gtr.add(t, PC(B1_ + r), bar * .95, 118); bas.add(t, B1_ - 12 + r, bar * .95, 108); sb.add(t, B1_ - 12 + r, bar * .95, 110)
+            kit(dr, t, 'kc . . . s .' if k < 23 else 'kc . 1 2 3 f', vel=114)
+    L = ['12 - - - 15 -', '13^ - 12 - 10 -', '12 - - - 7 -', '8~ - - - - -', '15 - - 17 - 18^', '17 - 15 - 13 -', '12 - 13 - 15 -', '12~ - - - - -']
+    for k in range(8, 16): melody(lead, k * bar, L[k - 8], B1_ + 24, vel=100)
+    return doom_mix(gtr, lead, bas, sb, dr, [(org, organ(6), .4, -7, 1)], room=.6, delay=.42), 24 * bar, bpm
+
+# ------------------------------------------------------------------ SKUMRING · dusk: the tritone that will not resolve (E, very slow)
 def skumring():
-    bpm = 62; bar = 4
-    gtr, lead, choir, org, bas, dr, bell = Part(P['dist']), Part(P['dist']), Part(P['choir']), Part(P['organ_church']), Part(P['bass_pick']), Part(0, drums=True), Part(P['bell'])
+    bpm = 54; bar = 4
+    gtr, lead, bas, sb, dr = band(); choir, org, bell = Part(P['choir']), Part(P['organ_church']), Part(P['bell'])
     seqA, seqB = '0 - - - 6 - - -', '5 - 3 - 2 - 1 -'
     for k in range(12):
         t = k * bar; seq = seqA if k % 2 == 0 else seqB
-        riff(gtr, t, seq, E2, step=.5, vel=114)
-        bassline(bas, t, seq, E1, step=.5)
-        kit(dr, t, ('kc' if k % 4 == 0 else 'k') + ' . . . s . . . k . k . s . . 1', step=.25, vel=110)
-        choir.add(t, [52, 55, 59] if k % 2 == 0 else [53, 58, 62], bar, 70 if k < 4 else 80)
-        if k % 2 == 0: bell.add(t, 64, 3.5, 62)
-        if k >= 4: org.add(t, [40, 47, 52, 58] if k % 2 == 0 else [41, 48, 53], bar * .98, 60)
-    L = ['. . 12 - 13^ - 12 - 10 - 7 - - - - -', '6^ - - - - - 7 - 5 - 3 - 1 - 0 -', '. . 15 - 16^ - 15 - 13 - 12 - 10 - 12 -', '13~ - - - - - - - - - - - . . . .']
-    for k in range(4, 12): melody(lead, k * bar, L[(k - 4) % 4], E2 + 12, step=.25, vel=100)
-    return [(gtr, guitar_rhythm(20), -.8, 3, 2), (lead, guitar_lead(.72), .25, -4, 1), (choir, pad(.95), 0, -5, 1), (org, organ(3), .4, -7, 1), (bas, bass(14), 0, -1, 1),
-            (dr, [pb.Compressor(-16, 3, 2, 60), pb.Reverb(room_size=.75, wet_level=.25, dry_level=.9)], 0, 0, 1), (bell, pad(.95), -.5, -9, 1)], 12 * bar, bpm
+        riff(gtr, t, seq, Cs2, vel=116); low(bas, sb, t, seq, Cs2)
+        kit(dr, t, ('kc' if k % 4 == 0 else 'k') + ' . . . s . . 1', vel=112)
+        choir.add(t, [49, 52, 56] if k % 2 == 0 else [50, 55, 59], bar, 70 if k < 4 else 80)
+        if k % 2 == 0: bell.add(t, 61, 3.5, 60)
+        if k >= 4: org.add(t, [37, 44, 49, 55] if k % 2 == 0 else [38, 45, 50], bar * .98, 60)
+    L = ['. . 12 - 13^ - 12 -', '6^ - - - 7 - 5 -', '. . 15 - 16^ - 15 -', '13~ - - - - - - -']
+    for k in range(4, 12): melody(lead, k * bar, L[(k - 4) % 4], Cs2 + 24, vel=98)
+    return doom_mix(gtr, lead, bas, sb, dr, [(choir, pad(.95), 0, -5, 1), (org, organ(3), .4, -8, 1), (bell, pad(.95), -.5, -10, 1)], drive=28, room=.8, delay=1.1), 12 * bar, bpm
 
-# ------------------------------------------------------------------ NAT · night: a psychedelic 6/8 drift (B minor)
+# ------------------------------------------------------------------ NAT · night: funeral doom (B), the organ and the dead
 def nat():
-    bpm = 200; bar = 6  # eighth-note beat
-    org, g, lead, swell, bas, dr = Part(P['organ_rock']), Part(P['clean']), Part(P['dist']), Part(P['dist']), Part(P['bass_finger']), Part(0, drums=True)
-    B2 = 47
-    prog = [(0, [0, 3, 7]), (-4, [0, 4, 7]), (-7, [0, 3, 7]), (-5, [0, 4, 7, 10])]
-    for k in range(24):
+    bpm = 48; bar = 4
+    gtr, lead, bas, sb, dr = band(); org, choir = Part(P['organ_church']), Part(P['voice_oohs'])
+    prog = [(0, [47, 50, 54, 59]), (-4, [43, 47, 50, 55]), (-2, [45, 49, 52, 57]), (-7, [40, 43, 47, 52])]
+    for k in range(16):
         t = k * bar; r, ch = prog[(k // 2) % 4]
-        for i, o in enumerate([0, 1, 2, 3, 2, 1]): org.add(t + i, B2 + 12 + r + ([*ch, 12])[o], 1.1, 70)
-        for i in (0, 3): g.add(t + i, [B2 + r + 12 + x for x in ch], 2.8, 64)
-        bas.add(t, B1 + r, 2.8, 88); bas.add(t + 3, B1 + r + 7, 2.8, 76)
-        if k >= 4: kit(dr, t, ('kc' if k % 8 == 4 else 'k') + ' 3 1 sx 2 3', step=1, vel=80)
-        if k % 8 == 6: swell.add(t, PC(B2 + r), bar * 2 * .95, 90)
-    L = ['12 - - 15 - 14 12 - - 10 - -', '7~ - - - - - - - - . . .', '14 - - 15 - 17 19^ - - 17 - 15', '14~ - - - - - - - - - . .',
-         '19 - - 17 - 15 14 - 12 10 - 9', '10~ - - - - - 7 - 9 10 - 12', '14 - - 15 - 17 19 - - 22^ - -', '19~ - - - - - - - - - . .']
-    for k in range(8, 24): melody(lead, k * bar, L[(k - 8) % 8], B2 + 12, step=1, vel=96)
-    return [(org, organ(6) + [pb.Phaser(rate_hz=.25, depth=.8, mix=.5)], .4, -3, 1), (g, clean(), -.5, -5, 1), (lead, guitar_lead(.9), .2, -3, 1),
-            (swell, guitar_rhythm() + [pb.Reverb(room_size=.9, wet_level=.4)], -.7, -4, 2), (bas, bass(6), 0, -2, 1), (dr, drums(), 0, -2, 1)], 24 * bar, bpm
+        org.add(t, ch, bar, 64); choir.add(t, [x + 12 for x in ch[1:]], bar, 54 if k < 4 else 66)
+        sb.add(t, B1_ - 12 + r, bar * .98, 104)
+        if k >= 4:
+            if k % 2 == 0: gtr.add(t, PC(B1_ + r), bar * 2 * .96, 104)
+            bas.add(t, B1_ - 12 + r, bar * .96, 100)
+            kit(dr, t, ('kc' if k % 2 == 0 else 'k') + ' . . . s . . .', vel=104)
+    L = ['12 - - - - - 10 -', '7~ - - - - - - -', '14 - - - 12 - 10 -', '9~ - - - - - - -']
+    for k in range(8, 16): melody(lead, k * bar, L[(k - 8) % 4], B1_ + 24, vel=92)
+    return doom_mix(gtr, lead, bas, sb, dr, [(org, organ(1), .35, -4, 1), (choir, pad(.96), -.3, -6, 1)], drive=28, room=.9, delay=1.25), 16 * bar, bpm
 
-# ------------------------------------------------------------------ MIDNAT · midnight: frantic 7/8 in E phrygian
+# ------------------------------------------------------------------ MIDNAT · midnight: the heaviest, a galloping doom in C# phrygian with a choir
 def midnat():
-    bpm = 172; bar = 3.5
-    gtr, lead, org, bas, dr = Part(P['dist']), Part(P['dist']), Part(P['organ_perc']), Part(P['bass_pick']), Part(0, drums=True)
-    R1, R2 = '0 m0 1 m0 3 m0 1', 'm0 m0 6 m0 5 m0 1'
-    for k in range(32):
-        t = k * bar; seq = R1 if k % 2 == 0 else R2
-        riff(gtr, t, seq, E2, vel=112); bassline(bas, t, seq.replace('m', ''), E1)
-        kit(dr, t, ('kc' if k % 8 == 0 else 'k') + ' kh sh kh k sh ' + ('kc' if k % 8 == 7 else 'kh'), vel=106)
-        if k % 2 == 0: org.add(t, [52, 58, 64], 1.5, 80); org.add(t + 2, [53, 59, 65], 1.5, 76)
-    L = ['12 13 15 13 12 - 11', '12 - - 16 - 15 13', '12 13 15 16 18 - 16', '15 - 13 - 12 - -',
-         '19 - 18 16 15 13 12', '13^ - - 12 - 11 -', '12 15 16 19 20^ - -', '19~ - - - - - -']
-    for k in range(16, 32): melody(lead, k * bar, L[(k - 16) % 8], E2 + 12, vel=104)
-    return [(gtr, guitar_rhythm(20), -.8, 2, 2), (lead, guitar_lead(.26), .25, -3, 1), (org, organ(14), .45, -6, 1), (bas, bass(14), 0, -2, 1), (dr, drums(), 0, 0, 1)], 32 * bar, bpm
+    bpm = 66; bar = 4
+    gtr, lead, bas, sb, dr = band(); choir, org = Part(P['choir']), Part(P['organ_church'])
+    R = ['0 m0 m0 1 - - 0 -', '0 m0 m0 3 - - 1 -', '0 m0 m0 1 - - 0 -', '6 - 5 - 3 - 1 -']
+    for k in range(24):
+        t = k * bar; seq = R[k % 4]
+        riff(gtr, t, seq, Cs2, vel=116); low(bas, sb, t, seq, Cs2)
+        kit(dr, t, ('kc' if k % 4 == 0 else 'k') + ' k sh k kh k sh ' + ('kc' if k % 8 == 7 else 'k'), vel=110)
+        choir.add(t, [61, 64, 68] if k % 4 != 3 else [67, 70, 74], bar, 64 if k < 8 else 78)
+        if k >= 8: org.add(t, [37, 44, 49], bar, 62)
+    L = ['12 - 13 - 12 - 10 -', '9 - 10 - 12 - - -', '13^ - 12 - 10 - 9 -', '7~ - - - - - - -',
+         '16 - 15 - 13 - 12 -', '13 - 15 - 16 - 18^ -', '19 - 18 - 16 - 15 -', '13~ - - - - - - -']
+    for k in range(8, 24): melody(lead, k * bar, L[(k - 8) % 8], Cs2 + 24, vel=102)
+    return doom_mix(gtr, lead, bas, sb, dr, [(choir, pad(.95), -.2, -5, 1), (org, organ(4), .4, -8, 1)], drive=30, room=.75, delay=.68), 24 * bar, bpm
 
-# ------------------------------------------------------------------ SLUT · the end of the day
+# ------------------------------------------------------------------ SLUT · the end: a requiem
 def slut():
-    bpm = 56; bar = 4
-    org, choir, swell, lead, bas, dr = Part(P['organ_church']), Part(P['choir']), Part(P['dist']), Part(P['dist']), Part(P['bass_finger']), Part(0, drums=True)
-    prog = [(0, [52, 55, 59, 64]), (-4, [48, 52, 55, 60]), (-7, [45, 48, 52, 57]), (-5, [47, 51, 54, 57])]
+    bpm = 52; bar = 4
+    gtr, lead, bas, sb, dr = band(); org, choir = Part(P['organ_church']), Part(P['choir'])
+    prog = [(0, [50, 53, 57, 62]), (-4, [46, 50, 53, 58]), (-7, [43, 46, 50, 55]), (-5, [45, 49, 52, 57])]
     for k in range(12):
         t = k * bar; r, ch = prog[k % 4]
-        org.add(t, ch, bar * .98, 70); choir.add(t, [x + 12 for x in ch[:3]], bar, 66 if k < 4 else 76)
-        bas.add(t, E1 + r, bar * .95, 86)
-        if k >= 4: swell.add(t, PC(E2 + r), bar * .95, 96); kit(dr, t, ('kc' if k % 4 == 0 else 'kr') + ' r r r sr r r r', step=.5, vel=82)
-    L = ['19 - - - 17 - 15 -', '16^ - - - 15 - 12 -', '12 - - 14 - 15 17 -', '15~ - - - - - - -']
-    for k in range(4, 12): melody(lead, k * bar, L[(k - 4) % 4], E2 + 12, step=.5, vel=98)
-    return [(org, organ(2), .3, -3, 1), (choir, pad(.95), -.3, -5, 1), (swell, guitar_rhythm() + [pb.Reverb(room_size=.85, wet_level=.35)], -.75, -2, 2),
-            (lead, guitar_lead(.8), .2, -3, 1), (bas, bass(4), 0, -3, 1), (dr, drums(), 0, -4, 1)], 12 * bar, bpm
+        org.add(t, ch, bar * .98, 70); choir.add(t, [x + 12 for x in ch[:3]], bar, 64 if k < 4 else 76)
+        sb.add(t, D2_ - 12 + r, bar * .95, 100)
+        if k >= 4: gtr.add(t, PC(D2_ + r), bar * .95, 106); bas.add(t, D2_ - 12 + r, bar * .95, 100); kit(dr, t, ('kc' if k % 4 == 0 else 'kr') + ' r r r sr r r r', vel=96)
+    L = ['19 - - - 17 - 15 -', '17^ - - - 15 - 14 -', '14 - - 15 - 17 19 -', '16~ - - - - - - -']
+    for k in range(4, 12): melody(lead, k * bar, L[(k - 4) % 4], D2_ + 12, vel=96)
+    return doom_mix(gtr, lead, bas, sb, dr, [(org, organ(2), .3, -3, 1), (choir, pad(.95), -.3, -5, 1)], drive=24, room=.85, delay=1.15), 12 * bar, bpm

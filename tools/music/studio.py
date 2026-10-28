@@ -15,9 +15,10 @@ P = dict(clean=27, muted=28, od=29, dist=30, bass_finger=33, bass_pick=34, organ
          strings=48, slow_strings=49, choir=52, voice_oohs=53, flute=73, recorder=74, pan_flute=75, sitar=104, bell=14, fx_goblin=101, harp=46)
 
 class Part:
-    """Notes for one instrument. Times and lengths are in beats; pitch is a MIDI number (or a list for a chord)."""
-    def __init__(self, program, bank=0, drums=False):
-        self.program, self.bank, self.drums, self.notes, self.bends = program, bank, drums, [], []
+    """Notes for one instrument. Times and lengths are in beats; pitch is a MIDI number (or a list for a chord).
+    sub=True: not a SoundFont instrument but a synthesized sub-bass (sine + a little second harmonic), for the doom low end."""
+    def __init__(self, program=0, bank=0, drums=False, sub=False):
+        self.program, self.bank, self.drums, self.sub, self.notes, self.bends = program, bank, drums, sub, [], []
     def add(self, t, pitch, dur, vel=100, bend=0, vib=0):
         for p in (pitch if isinstance(pitch, (list, tuple)) else [pitch]):
             self.notes.append((t, p, dur, vel, bend, vib))
@@ -29,8 +30,23 @@ def humanize(part, bpm, ms=7, vel=8, seed=1):
     part.notes = [(max(0, t + r.uniform(-1, 1) * ms / 1000 / spb), p, d, max(1, min(127, v + r.randint(-vel, vel))), b, vb) for (t, p, d, v, b, vb) in part.notes]
     return part
 
+def render_sub(part, beats, bpm, passes=2):
+    """A sine sub-bass that follows the notes, with soft attack and release, lightly saturated so it is felt on small speakers too."""
+    spb = 60 / bpm; total = int(round(passes * beats * spb * SR)) + SR * 3; out = np.zeros(total, np.float32)
+    for k in range(passes):
+        for (t, p, d, v, b, vb) in part.notes:
+            s0 = int(round((t + k * beats) * spb * SR)); n = int(round(d * spb * SR)) + int(.15 * SR)
+            if s0 >= total: continue
+            n = min(n, total - s0); tt = np.arange(n) / SR; f = 440 * 2 ** ((p - 69) / 12)
+            env = np.minimum(1, tt / .012) * np.clip((d * spb + .15 - tt) / .15, 0, 1)
+            w = np.sin(2 * np.pi * f * tt) + .22 * np.sin(4 * np.pi * f * tt) + .08 * np.sin(6 * np.pi * f * tt)
+            out[s0:s0 + n] += (w * env * v / 127).astype(np.float32)
+    out = np.tanh(out * 1.6) / 1.6
+    return np.stack([out, out])
+
 def render_part(part, beats, bpm, passes=2, block=128, seed=0):
     """Render a part for `passes` times `beats` (the loop played back to back). Returns stereo float32 (2, n)."""
+    if part.sub: return render_sub(part, beats, bpm, passes)
     syn = tinysoundfont.Synth(samplerate=SR, gain=-3)
     sf = syn.sfload(SF2)
     ch = 9 if part.drums else 0
@@ -86,6 +102,16 @@ def guitar_lead(delay=.375, drive=30, phase=True):
     if phase: ch.append(pb.Phaser(rate_hz=.4, depth=.6, centre_frequency_hz=900, feedback=.4, mix=.45))
     ch += [pb.Delay(delay_seconds=delay, feedback=.38, mix=.28), pb.Reverb(room_size=.7, damping=.5, wet_level=.22, dry_level=.85)]
     return ch
+def guitar_doom(drive=26):
+    # downtuned fuzz wall: more low-mids and body, rounded top, slow compression so chords bloom
+    return [pb.HighpassFilter(45), pb.Distortion(drive_db=drive), pb.LowpassFilter(4200), pb.PeakFilter(120, 4, .9), pb.PeakFilter(420, 2.5, 1),
+            pb.PeakFilter(900, -4, .9), pb.PeakFilter(2300, 2, 1.2), pb.HighShelfFilter(6000, -9), pb.Compressor(-20, 3, 15, 200)]
+def doom_lead(delay=.6):
+    return [pb.HighpassFilter(160), pb.Distortion(drive_db=28), pb.LowpassFilter(4800), pb.PeakFilter(1000, 3, 1),
+            pb.Delay(delay_seconds=delay, feedback=.35, mix=.25), pb.Reverb(room_size=.85, damping=.5, wet_level=.3, dry_level=.8)]
+def doom_drums(room=.7):
+    return [pb.LowShelfFilter(80, 4), pb.Compressor(-18, 4, 3, 120), pb.Reverb(room_size=room, damping=.45, wet_level=.24, dry_level=.95)]
+def sub(): return [pb.LowpassFilter(160), pb.Compressor(-16, 3, 10, 150)]
 def organ(drive=8):
     return [pb.Distortion(drive_db=drive), pb.LowpassFilter(7000), pb.Chorus(rate_hz=5.8, depth=.35, centre_delay_ms=4, feedback=0, mix=.6), pb.Reverb(room_size=.5, wet_level=.18, dry_level=.9)]
 def bass(drive=10):
@@ -103,6 +129,6 @@ def mix(stems, beats, bpm):
     spb = 60 / bpm; L = int(round(beats * spb * SR))
     n = max(s.shape[1] for s, _ in stems); bus = np.zeros((2, n), np.float32)
     for s, g in stems: bus[:, :s.shape[1]] += s * db(g)
-    master = pb.Pedalboard([pb.HighpassFilter(30), pb.LowShelfFilter(90, 1.5), pb.Compressor(-14, 2.5, 10, 150), pb.Gain(3), pb.Limiter(-1.0, 120)])
+    master = pb.Pedalboard([pb.HighpassFilter(27), pb.LowShelfFilter(85, 3), pb.PeakFilter(250, 1.5, .8), pb.Compressor(-14, 2.5, 10, 150), pb.Gain(3), pb.Limiter(-1.0, 120)])
     out = master(bus, SR)
     return out[:, L:2 * L].copy()
