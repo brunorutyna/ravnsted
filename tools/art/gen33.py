@@ -71,11 +71,14 @@ O = {
 for k, v in O.items(): J[k] = obj(v)
 
 # tall versions of the opening cards, so they fill a phone screen sharply (Bruno, 2026-10-28: "not filling the screen", then "out of focus")
-TALLP = ("Recompose the reference painting as a tall vertical picture: the same subject, the same style, technique, palette and mood, "
-         "the main subject large and complete in the upper two thirds, the lower third darker and calm with little detail (text will be laid over it). "
+TALLP = ("Recompose the reference painting as a tall vertical picture, seen from further away: a wide establishing view where the whole scene "
+         "and its surroundings are visible, and the main subject is complete but only medium-sized, with plenty of space and sky around it (no close-up). "
+         "The same subject, style, technique, palette and mood. The lowest fifth darker and calm with little detail (text will be laid over it). "
          "Absolutely no violet, purple or magenta.") + NOTEXT
+# Bruno, 2026-10-29: the first tall versions were too close up ("too much zoom")
+FILLP = " The picture fills the whole canvas edge to edge: no frame, no border, no picture inside a picture." 
 for t, src in [('lore_marsh_tall', 'lore_marsh'), ('lore_book_tall', 'skriver_5'), ('lore_crow_tall', 'lore_crow'), ('lore_doed_tall', 'lore_doed'), ('lore_hane_tall', 'lore_hane'), ('lore_lampe_tall', 'lore_lampe'), ('kirke_tall', 'kirke'), ('kirke33_tall', 'kirke33')]:
-    J[t] = dict(prompt=TALLP, aspect='9:16', refs=(src,))
+    J[t] = dict(prompt=TALLP + FILLP, aspect='9:16', refs=(src,))
 gen.J.update(J)  # gen.run looks names up in gen.J
 if __name__ == '__main__':
     from concurrent.futures import ThreadPoolExecutor

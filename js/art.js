@@ -186,7 +186,9 @@ const ART = (() => {
     preload(names) { names.forEach(n => img(n)); },
     get state() { return st; },
     timeCard(c, W, H, tf, now) {
-      c.fillStyle = INK; c.fillRect(0, 0, W, H); const base = (typeof SES !== 'undefined' && SES.timeCard) || 'kirke', im = (H > W && img(base + '_tall')) || img(base); if (im) cover(c, im, W, H, 1.01 + (now % 20000) / 800000, .5, .4);
+      c.fillStyle = INK; c.fillRect(0, 0, W, H); const base = (typeof SES !== 'undefined' && SES.timeCard) || 'kirke', tall = H > W && img(base + '_tall'), im = tall || img(base);
+      if (tall) { try { c.filter = 'blur(18px) brightness(.45)'; cover(c, tall, W, H, 1.1); } catch (e) { } c.filter = 'none'; const k = Math.min(W / tall.naturalWidth, H / tall.naturalHeight); c.drawImage(tall, (W - tall.naturalWidth * k) / 2, 0, tall.naturalWidth * k, tall.naturalHeight * k); }
+      else if (im) cover(c, im, W, H, 1.01 + (now % 20000) / 800000, .5, .4);
       const i = Math.max(0, Math.min(6, Math.floor(tf))), j = Math.min(6, i + 1), t = Math.max(0, Math.min(1, tf - i));
       c.globalCompositeOperation = 'color'; c.globalAlpha = .45 * (1 - t); c.fillStyle = HOURS[i]; c.fillRect(0, 0, W, H); c.globalAlpha = .45 * t; c.fillStyle = HOURS[j]; c.fillRect(0, 0, W, H);
       c.globalCompositeOperation = 'multiply'; c.globalAlpha = Math.min(.6, Math.max(0, (tf - 3.5) * .25)); c.fillStyle = '#10142a'; c.fillRect(0, 0, W, H);
@@ -205,7 +207,11 @@ const ART = (() => {
         c.drawImage(im, 0, y, W, h); const g = c.createLinearGradient(0, y + h - H * .06, 0, y + h); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.5)'); c.fillStyle = g; c.fillRect(0, y, W, h);
         effects(c, (FX[wide] || []).filter(e => e[0] !== 'fog'), (u, v) => [u * W, y + v * h, k], W, H, f, false);
       };
-      const full = im => { const at = cover(c, im, W, H, 1, .5, .4); effects(c, (FX[wide] || []).filter(e => e[0] !== 'fog' && e[0] !== 'eyes'), at, W, H, f, false); vignette(c, W, H, .3); };
+      // the tall painting is shown whole (fit to the width, never cropped at the sides), over a blurred copy that fills what is left
+      const fitW = (im, y0) => { c.fillStyle = INK; c.fillRect(0, 0, W, H); try { c.filter = 'blur(18px) brightness(.45)'; cover(c, im, W, H, 1.1); } catch (e) { } c.filter = 'none';
+        const k = Math.min(W / im.naturalWidth, H / im.naturalHeight), w = im.naturalWidth * k, h = im.naturalHeight * k, x = (W - w) / 2, y = Math.max(0, Math.min(H - h, y0 * (H - h)));
+        c.drawImage(im, x, y, w, h); return (u, v) => [x + u * w, y + v * h, k]; };
+      const full = im => { const at = fitW(im, 0); effects(c, (FX[wide] || []).filter(e => e[0] !== 'fog' && e[0] !== 'eyes'), at, W, H, f, false); vignette(c, W, H, .3); };
       if (!tall) return once(c, wide, im => { const at = cover(c, im, W, H, 1, .5, .45); effects(c, (FX[wide] || []).filter(e => e[0] !== 'fog'), at, W, H, f, false); vignette(c, W, H, .35); });
       if (tall === 'title_tall') return once(c, tall, full);
       // try the tall painting; fall back to the whole wide one if it does not exist (yet)
